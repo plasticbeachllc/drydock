@@ -214,12 +214,6 @@ def generate_theme_files(theme_key: str, theme: dict) -> dict[str, str]:
     btop_conf = Path.home() / ".config" / "btop" / "btop.conf"
     _set_btop_color_theme(btop_conf, theme["name"])
 
-    # Gallery
-    gallery_script = REPO_ROOT / "themes" / "build_gallery.py"
-    if gallery_script.exists():
-        subprocess.run([sys.executable, str(gallery_script)], check=True)
-        print(f"  generated theme gallery")
-
     return theme_placeholders(theme)
 
 
@@ -436,17 +430,17 @@ def provision_secrets(identity: dict[str, str]) -> None:
     if op_authenticated():
         print("  Already authenticated — zshrc will fetch secrets at runtime.")
     else:
-        print("  Not currently signed in.\n")
-        print("  [1] Sign in now (secrets fetched live each shell session)")
+        print("  No active CLI session.\n")
+        print("  [1] Authenticate now (Touch ID if 1Password app is open, or master password)")
         print("  [2] Enter secrets manually (written to ~/.zshrc.local)")
         print("  [3] Skip for now")
         choice = input("  choice: ").strip()
 
         if choice == "1":
             if op_signin():
-                print("  Authenticated — zshrc will fetch secrets at runtime.")
+                print("  Authenticated — secrets will be fetched live via op:// URIs.")
             else:
-                print("  Sign-in failed. Re-run setup.py or set secrets in ~/.zshrc.local.")
+                print("  Auth failed. Re-run setup.py or set secrets in ~/.zshrc.local.")
         elif choice == "2":
             print()
             for name in MANUAL_SECRETS:
@@ -497,6 +491,7 @@ def configure_app_icons() -> None:
         print("  skipped (fileicon not installed — run bootstrap.sh first)")
         return
 
+    changed = False
     for app_path, icon_path in APP_ICON_MAP.items():
         app = Path(app_path)
         icon = Path(icon_path)
@@ -524,9 +519,13 @@ def configure_app_icons() -> None:
         )
         if result.returncode == 0:
             print(f"  {label:20s} set ({icon.name})")
+            changed = True
         else:
             stderr = result.stderr.decode().strip()
             print(f"  {label:20s} failed ({stderr})")
+
+    if changed:
+        subprocess.run(["killall", "Dock"], capture_output=True)
 
 
 def main() -> None:
@@ -539,6 +538,15 @@ def main() -> None:
 
     # Step 2: Theme
     print("Theme:\n")
+    gallery_script = REPO_ROOT / "themes" / "build_gallery.py"
+    gallery_html = REPO_ROOT / "themes" / "gallery.html"
+    if gallery_script.exists():
+        subprocess.run([sys.executable, str(gallery_script)], capture_output=True)
+        if gallery_html.exists():
+            choice = input("  press p to preview theme gallery in browser, or Enter to skip: ").strip().lower()
+            if choice == "p":
+                subprocess.run(["open", str(gallery_html)])
+            print()
     theme_key, theme = prompt_theme()
     print(f"\n  Selected: {theme['name']}\n")
     print("Generating theme configs:\n")
