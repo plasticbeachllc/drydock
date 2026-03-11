@@ -9,10 +9,10 @@ __THEME_PALETTE__
 RST='\033[0m'
 
 # ── Extract data ───────────────────────────────────────
-read -r MODEL PROJECT PCT < <(echo "$input" | jq -r '[.model.display_name, ((.workspace.project_dir // "unknown") | split("/") | last), (.context_window.used_percentage // 0 | floor | tostring)] | @tsv')
+IFS=$'\t' read -r MODEL PROJECT PCT < <(echo "$input" | jq -r '[.model.display_name, ((.workspace.project_dir // "unknown") | split("/") | last), (.context_window.used_percentage // 0 | floor | tostring)] | @tsv')
 
 # ── Context bar ────────────────────────────────────────
-BAR_W=6
+BAR_W=5
 FILLED=$((PCT * BAR_W / 100))
 [ "$FILLED" -gt "$BAR_W" ] && FILLED=$BAR_W
 EMPTY=$((BAR_W - FILLED))
@@ -44,4 +44,4 @@ if command -v jj &>/dev/null && jj root &>/dev/null; then
 fi
 
 # ── Assemble ───────────────────────────────────────────
-echo -e "${DIM}◆ ${MODEL}${RST} ${SEP}·${RST} ${BLUE}${PROJECT}${RST}${JJ} ${SEP}·${RST} ${BAR} ${DIM}${PCT}%${RST}"
+echo -e "${DIM}◆${RST} ${DIM}${MODEL}${RST} ${SEP}·${RST} ${BLUE}${PROJECT}${RST}${JJ} ${SEP}·${RST} ${BAR}"

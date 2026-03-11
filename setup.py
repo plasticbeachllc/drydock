@@ -579,6 +579,9 @@ def main() -> None:
             rendered = RENDERED_DIR / repo_rel
             rendered.parent.mkdir(parents=True, exist_ok=True)
             rendered.write_text(render_template(src, all_subs))
+            # Preserve executable bit from source
+            src_mode = src.stat().st_mode
+            rendered.chmod(src_mode & 0o7777)
             status = create_symlink(rendered, target)
             print(f"  {status:40s} {target} -> {rendered}")
         else:
