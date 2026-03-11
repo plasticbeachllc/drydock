@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Generate theme-gallery.html from themes.toml."""
 
+import html as html_mod
 import tomllib
 from pathlib import Path
 
@@ -45,6 +46,7 @@ def preview(base: dict, acc: dict, pv: dict) -> str:
     dim = base["dim_fg"]
 
     def sp(color, text, cls=""):
+        text = html_mod.escape(text)
         attr = f'style="color:{color};"'
         if cls:
             attr = f'class="{cls}" ' + attr

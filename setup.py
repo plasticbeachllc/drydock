@@ -47,7 +47,7 @@ CLAUDE_SETTINGS_DIR = Path.home() / ".claude"
 CLAUDE_SETTINGS = {
     "statusLine": {
         "type": "command",
-        "command": "~/.claude/statusline.sh",
+        "command": str(Path.home() / ".claude" / "statusline.sh"),
         "padding": 2,
     },
 }
@@ -252,6 +252,12 @@ def op_signin() -> bool:
     return False
 
 
+def _ensure_zshrc_local_permissions() -> None:
+    """Ensure ~/.zshrc.local has restrictive permissions (0600)."""
+    if ZSHRC_LOCAL.exists():
+        ZSHRC_LOCAL.chmod(0o600)
+
+
 def write_secret_to_zshrc_local(name: str, value: str) -> None:
     """Write an export line to ~/.zshrc.local, replacing if it already exists."""
     marker = f"export {name}="
@@ -262,11 +268,13 @@ def write_secret_to_zshrc_local(name: str, value: str) -> None:
             if line.startswith(marker):
                 lines[i] = f'export {name}="{value}"'
                 ZSHRC_LOCAL.write_text("\n".join(lines) + "\n")
+                _ensure_zshrc_local_permissions()
                 return
         with ZSHRC_LOCAL.open("a") as f:
             f.write(f'export {name}="{value}"\n')
     else:
         ZSHRC_LOCAL.write_text(f'export {name}="{value}"\n')
+    _ensure_zshrc_local_permissions()
 
 
 def provision_secrets() -> None:
@@ -330,7 +338,11 @@ def configure_claude_code() -> None:
 
     existing = {}
     if settings_file.exists():
-        existing = json.loads(settings_file.read_text())
+        try:
+            existing = json.loads(settings_file.read_text())
+        except json.JSONDecodeError:
+            print(f"  warning: {settings_file} contains invalid JSON, overwriting")
+            existing = {}
 
     changed = False
     for key, value in CLAUDE_SETTINGS.items():

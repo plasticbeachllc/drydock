@@ -57,6 +57,14 @@ exit 0
 """,
         )
         self._write_executable(
+            self.bin_dir / "bun",
+            f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'bun %s\\n' "$*" >> "{self.log_file}"
+exit 0
+""",
+        )
+        self._write_executable(
             self.brew_prefix / "opt" / "fzf" / "install",
             f"""#!/usr/bin/env bash
 set -euo pipefail

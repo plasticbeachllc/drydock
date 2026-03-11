@@ -1,4 +1,6 @@
 import importlib.util
+import json
+import stat
 import tempfile
 import unittest
 from pathlib import Path
@@ -39,7 +41,7 @@ class SetupPyTests(unittest.TestCase):
         src_dir = self.root / "nvim"
         src_dir.mkdir()
 
-        self.assertFalse(self.module.needs_templating(src_dir))
+        self.assertFalse(self.module.needs_templating(src_dir, ["__NAME__"]))
 
     def test_create_symlink_backs_up_existing_file(self):
         source = self.root / "source.txt"
@@ -90,6 +92,39 @@ class SetupPyTests(unittest.TestCase):
             zshrc_local.read_text(),
             'export EXISTING="1"\nexport OPENAI_API_KEY="new"\n',
         )
+
+    def test_write_secret_sets_restrictive_permissions(self):
+        zshrc_local = self.root / ".zshrc.local"
+
+        with mock.patch.object(self.module, "ZSHRC_LOCAL", zshrc_local):
+            self.module.write_secret_to_zshrc_local("OPENAI_API_KEY", "sk-test")
+
+        mode = zshrc_local.stat().st_mode & 0o777
+        self.assertEqual(mode, 0o600)
+
+    def test_configure_claude_code_handles_malformed_json(self):
+        settings_dir = self.root / ".claude"
+        settings_dir.mkdir()
+        settings_file = settings_dir / "settings.json"
+        settings_file.write_text("{bad json")
+
+        with mock.patch.object(self.module, "CLAUDE_SETTINGS_DIR", settings_dir):
+            self.module.configure_claude_code()
+
+        result = json.loads(settings_file.read_text())
+        self.assertIn("statusLine", result)
+
+    def test_configure_claude_code_uses_absolute_path(self):
+        settings_dir = self.root / ".claude"
+        settings_dir.mkdir()
+
+        with mock.patch.object(self.module, "CLAUDE_SETTINGS_DIR", settings_dir):
+            self.module.configure_claude_code()
+
+        result = json.loads((settings_dir / "settings.json").read_text())
+        command = result["statusLine"]["command"]
+        self.assertNotIn("~", command)
+        self.assertTrue(command.startswith("/"))
 
 
 if __name__ == "__main__":

@@ -9,9 +9,7 @@ __THEME_PALETTE__
 RST='\033[0m'
 
 # ── Extract data ───────────────────────────────────────
-MODEL=$(echo "$input" | jq -r '.model.display_name')
-PROJECT=$(echo "$input" | jq -r '.workspace.project_dir' | xargs basename)
-PCT=$(echo "$input" | jq -r '.context_window.used_percentage // 0' | cut -d. -f1)
+read -r MODEL PROJECT PCT < <(echo "$input" | jq -r '[.model.display_name, ((.workspace.project_dir // "unknown") | split("/") | last), (.context_window.used_percentage // 0 | floor | tostring)] | @tsv')
 
 # ── Context bar ────────────────────────────────────────
 BAR_W=6
@@ -32,10 +30,10 @@ BAR="${BAR_C}${BAR_FILLED}${SEP}${BAR_EMPTY}${RST}"
 # ── jj status ──────────────────────────────────────────
 JJ=""
 if command -v jj &>/dev/null && jj root &>/dev/null; then
-  BOOKMARK=$(jj log -r @ --no-graph -T 'bookmarks.join(", ")' 2>/dev/null)
-  [ -z "$BOOKMARK" ] && BOOKMARK=$(jj log -r @ --no-graph -T 'change_id.shortest(4)' 2>/dev/null)
+  JJ_INFO=$(jj log -r @ --no-graph -T 'separate("\t", if(bookmarks, bookmarks.join(", "), change_id.shortest(4)), if(empty, "clean", "dirty"))' 2>/dev/null)
+  BOOKMARK=$(echo "$JJ_INFO" | cut -f1)
+  IS_EMPTY=$(echo "$JJ_INFO" | cut -f2)
 
-  IS_EMPTY=$(jj log -r @ --no-graph -T 'if(empty, "clean", "dirty")' 2>/dev/null)
   if [ "$IS_EMPTY" = "dirty" ]; then
     DOT="${ORANGE}●${RST}"
   else

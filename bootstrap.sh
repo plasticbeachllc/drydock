@@ -49,6 +49,12 @@ if ! command -v jj-fzf &>/dev/null && [ ! -d "$HOME/.jj-fzf" ]; then
         git clone https://github.com/tim-janik/jj-fzf.git "$HOME/.jj-fzf"
 fi
 
+# --- bun (needed for AI tool installs) ---
+if ! command -v bun &>/dev/null; then
+    echo "Installing bun..."
+    brew install oven-sh/bun/bun
+fi
+
 # --- AI tools (via bun for auto-updates) ---
 echo "Installing AI tools..."
 bun install -g @anthropic-ai/claude-code 2>/dev/null || true
