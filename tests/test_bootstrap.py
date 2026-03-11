@@ -65,6 +65,14 @@ exit 0
 """,
         )
         self._write_executable(
+            self.bin_dir / "rustup-init",
+            f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'rustup-init %s\\n' "$*" >> "{self.log_file}"
+exit 0
+""",
+        )
+        self._write_executable(
             self.brew_prefix / "opt" / "fzf" / "install",
             f"""#!/usr/bin/env bash
 set -euo pipefail
@@ -97,7 +105,11 @@ exit 0
         self.assertIn("brew install --cask ghostty", commands)
         self.assertIn("brew install --cask font-maple-mono-nf", commands)
         self.assertIn("brew install starship", commands)
+        self.assertIn("gh", commands)
+        self.assertIn("jq", commands)
+        self.assertIn("rustup-init", commands)
         self.assertIn("brew install jj-fzf", commands)
+        self.assertIn("rustup-init -y --no-modify-path", commands)
         self.assertIn(
             "fzf-install --key-bindings --completion --no-update-rc --no-bash --no-fish",
             commands,

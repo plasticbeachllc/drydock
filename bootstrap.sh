@@ -36,10 +36,13 @@ brew install \
   tealdeer \
   direnv \
   lazygit \
+  gh \
+  jq \
   jj \
   lazyjj \
   dmmulroy/tap/jj-starship \
   1password-cli \
+  rustup-init \
   neovim
 
 # --- jj-fzf (git clone if not in brew) ---
@@ -53,6 +56,14 @@ fi
 if ! command -v bun &>/dev/null; then
     echo "Installing bun..."
     brew install oven-sh/bun/bun
+fi
+
+# --- Rust toolchain ---
+if [ ! -f "$HOME/.cargo/env" ]; then
+    echo "Initializing Rust toolchain..."
+    rustup-init -y --no-modify-path
+else
+    echo "Rust toolchain already initialized."
 fi
 
 # --- AI tools (via bun for auto-updates) ---
