@@ -4,7 +4,6 @@
 """Dotfiles provisioning script — renders templates and creates symlinks."""
 
 import json
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -18,13 +17,16 @@ PLACEHOLDERS = ["__NAME__", "__EMAIL__"]
 
 # Symlink mapping: repo template path -> target symlink location
 SYMLINK_MAP = {
-    "shell/zshrc":     Path.home() / ".zshrc",
-    "shell/zshenv":    Path.home() / ".zshenv",
-    "shell/zprofile":  Path.home() / ".zprofile",
-    "git/gitconfig":   Path.home() / ".gitconfig",
-    "git/ignore":      Path.home() / ".config" / "git" / "ignore",
-    "jj/config.toml":  Path.home() / ".config" / "jj" / "config.toml",
-    "gh/config.yml":   Path.home() / ".config" / "gh" / "config.yml",
+    "shell/zshrc":          Path.home() / ".zshrc",
+    "shell/zshenv":         Path.home() / ".zshenv",
+    "shell/zprofile":       Path.home() / ".zprofile",
+    "git/gitconfig":        Path.home() / ".gitconfig",
+    "git/ignore":           Path.home() / ".config" / "git" / "ignore",
+    "jj/config.toml":       Path.home() / ".config" / "jj" / "config.toml",
+    "gh/config.yml":        Path.home() / ".config" / "gh" / "config.yml",
+    "sheldon/plugins.toml": Path.home() / ".config" / "sheldon" / "plugins.toml",
+    "starship/starship.toml": Path.home() / ".config" / "starship.toml",
+    "ghostty/config":       Path.home() / ".config" / "ghostty" / "config",
 }
 
 

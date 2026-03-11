@@ -3,3 +3,11 @@
 [user]
 name = "__NAME__"
 email = "__EMAIL__"
+
+[ui]
+default-command = "log"
+diff.format = "git"
+pager = "delta"
+
+[git]
+auto-local-bookmark = false

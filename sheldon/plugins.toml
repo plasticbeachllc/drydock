@@ -1,0 +1,19 @@
+shell = "zsh"
+
+# --- Completions (load early) ---
+[plugins.zsh-completions]
+github = "zsh-users/zsh-completions"
+
+# --- Core plugins ---
+[plugins.zsh-autosuggestions]
+github = "zsh-users/zsh-autosuggestions"
+
+[plugins.zsh-syntax-highlighting]
+github = "zsh-users/zsh-syntax-highlighting"
+
+[plugins.zsh-history-substring-search]
+github = "zsh-users/zsh-history-substring-search"
+
+# --- fzf-tab (replaces default tab completion with fzf) ---
+[plugins.fzf-tab]
+github = "Aloxaf/fzf-tab"

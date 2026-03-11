@@ -1,23 +1,76 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Detect OS
-OS="$(uname -s)"
-case "$OS" in
-    Darwin) echo "Detected macOS" ;;
-    Linux)  echo "Detected Linux" ;;
-    *)      echo "Unsupported OS: $OS"; exit 1 ;;
-esac
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Install uv if not present
+# --- Homebrew ---
+if ! command -v brew &>/dev/null; then
+    echo "Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+else
+    echo "Homebrew already installed."
+fi
+
+# --- Casks (GUI apps) ---
+echo "Installing casks..."
+brew install --cask ghostty 2>/dev/null || true
+brew install --cask font-maple-mono-nf 2>/dev/null || true
+brew install --cask gg 2>/dev/null || true
+
+# --- Formulae (CLI tools) ---
+echo "Installing CLI tools..."
+brew install \
+  starship \
+  sheldon \
+  eza \
+  bat \
+  ripgrep \
+  fd \
+  zoxide \
+  fzf \
+  git-delta \
+  dust \
+  btop \
+  xh \
+  sd \
+  tealdeer \
+  direnv \
+  lazygit \
+  jj \
+  lazyjj
+
+# --- jj-fzf (git clone if not in brew) ---
+if ! command -v jj-fzf &>/dev/null && [ ! -d "$HOME/.jj-fzf" ]; then
+    echo "Installing jj-fzf..."
+    brew install jj-fzf 2>/dev/null || \
+        git clone https://github.com/tim-janik/jj-fzf.git "$HOME/.jj-fzf"
+fi
+
+# --- Post-install ---
+echo "Running post-install steps..."
+
+# fzf shell integration
+if [ -f "$(brew --prefix)/opt/fzf/install" ]; then
+    "$(brew --prefix)/opt/fzf/install" --key-bindings --completion --no-update-rc --no-bash --no-fish
+fi
+
+# tealdeer cache
+command -v tldr &>/dev/null && tldr --update || true
+
+# sheldon plugin lock
+command -v sheldon &>/dev/null && sheldon lock || true
+
+# --- uv (for setup.py) ---
 if ! command -v uv &>/dev/null; then
     echo "Installing uv..."
     curl -LsSf https://astral.sh/uv/install.sh | sh
-    echo "uv installed."
 else
     echo "uv already installed."
 fi
 
-# Hand off to Python provisioning script
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# --- Hand off to Python provisioner ---
+echo ""
+echo "Package installation complete. Running setup.py..."
+echo ""
 uv run "$SCRIPT_DIR/setup.py"
