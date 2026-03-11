@@ -22,7 +22,8 @@ return {
       },
     },
     init = function()
-      local d = dofile(os.getenv("HOME") .. "/.config/dotfiles/dashboard_colors.lua") or {}
+      local ok2, d = pcall(dofile, os.getenv("HOME") .. "/.config/dotfiles/dashboard_colors.lua")
+      if not ok2 then d = {} end
       vim.api.nvim_set_hl(0, "SnacksDashboardHeader", { fg = d.header_color or "#40bfb0" })
     end,
   },

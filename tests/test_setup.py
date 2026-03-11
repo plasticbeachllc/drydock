@@ -127,5 +127,56 @@ class SetupPyTests(unittest.TestCase):
         self.assertTrue(command.startswith("/"))
 
 
+    def test_set_btop_color_theme_creates_new_file(self):
+        conf = self.root / "btop.conf"
+
+        self.module._set_btop_color_theme(conf, "Deep Water")
+
+        self.assertEqual(conf.read_text(), 'color_theme = "Deep Water"\n')
+
+    def test_set_btop_color_theme_updates_existing_key(self):
+        conf = self.root / "btop.conf"
+        conf.write_text('vim_keys = true\ncolor_theme = "Old Theme"\nupdate_ms = 2000\n')
+
+        self.module._set_btop_color_theme(conf, "Desert Island")
+
+        lines = conf.read_text().splitlines()
+        self.assertEqual(lines[0], "vim_keys = true")
+        self.assertEqual(lines[1], 'color_theme = "Desert Island"')
+        self.assertEqual(lines[2], "update_ms = 2000")
+
+    def test_set_btop_color_theme_appends_when_key_missing(self):
+        conf = self.root / "btop.conf"
+        conf.write_text("vim_keys = true\n")
+
+        self.module._set_btop_color_theme(conf, "Plastic Beach Basic")
+
+        lines = conf.read_text().splitlines()
+        self.assertEqual(lines[-1], 'color_theme = "Plastic Beach Basic"')
+
+    def test_render_template_theme_before_identity(self):
+        """__THEME_NAME__ must be replaced before __NAME__ to avoid partial match."""
+        src = self.root / "template.txt"
+        src.write_text("theme=__THEME_NAME__ user=__NAME__\n")
+
+        rendered = self.module.render_template(
+            src,
+            {
+                "__NAME__": "Taylor",
+                "__THEME_NAME__": "Plastic Beach Basic",
+            },
+        )
+
+        self.assertEqual(rendered, "theme=Plastic Beach Basic user=Taylor\n")
+
+    def test_needs_templating_detects_theme_placeholders(self):
+        src = self.root / "config.toml"
+        src.write_text('highlight = "__THEME_HIGHLIGHT_COLOR__"\n')
+
+        self.assertTrue(
+            self.module.needs_templating(src, ["__NAME__", "__THEME_HIGHLIGHT_COLOR__"])
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

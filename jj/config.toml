@@ -11,3 +11,6 @@ pager = "delta"
 
 [git]
 auto-local-bookmark = false
+
+[lazyjj]
+highlight-color = "__THEME_HIGHLIGHT_COLOR__"

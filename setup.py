@@ -4,6 +4,7 @@
 """Dotfiles provisioning script — renders templates, creates symlinks, provisions secrets."""
 
 import json
+import shutil
 import subprocess
 import sys
 from datetime import datetime
@@ -40,6 +41,15 @@ SYMLINK_MAP = {
     "ghostty/config":       Path.home() / ".config" / "ghostty" / "config",
     "nvim":                 Path.home() / ".config" / "nvim",
     "claude/statusline.sh": Path.home() / ".claude" / "statusline.sh",
+}
+
+# App icon overrides: {app_path: icon_source_path}
+# Uses `fileicon` to set custom icons via extended attributes.
+APP_ICON_MAP = {
+    "/Applications/Ghostty.app": (
+        "/System/Applications/Utilities/Terminal.app"
+        "/Contents/Resources/Terminal.icns"
+    ),
 }
 
 # Claude Code settings to merge into ~/.claude/settings.json
@@ -141,6 +151,7 @@ def generate_theme_files(theme_key: str, theme: dict) -> dict[str, str]:
     """Generate all theme-dependent files. Returns placeholder dict for templates."""
     sys.path.insert(0, str(REPO_ROOT / "themes"))
     from generate import (
+        btop_theme,
         ghostty_theme,
         lazygit_config,
         nvim_dashboard_colors,
@@ -178,7 +189,41 @@ def generate_theme_files(theme_key: str, theme: dict) -> dict[str, str]:
     lazygit_path.write_text(lazygit_config(theme))
     print(f"  generated lazygit config")
 
+    # btop theme
+    btop_theme_dir = Path.home() / ".config" / "btop" / "themes"
+    btop_theme_dir.mkdir(parents=True, exist_ok=True)
+    btop_theme_path = btop_theme_dir / f"{theme['name']}.theme"
+    btop_theme_path.write_text(btop_theme(theme))
+    print(f"  generated btop theme: {theme['name']}")
+
+    # Set btop to use the theme
+    btop_conf = Path.home() / ".config" / "btop" / "btop.conf"
+    _set_btop_color_theme(btop_conf, theme["name"])
+
+    # Gallery
+    gallery_script = REPO_ROOT / "themes" / "build_gallery.py"
+    if gallery_script.exists():
+        subprocess.run([sys.executable, str(gallery_script)], check=True)
+        print(f"  generated theme gallery")
+
     return theme_placeholders(theme)
+
+
+def _set_btop_color_theme(conf_path: Path, theme_name: str) -> None:
+    """Set color_theme in btop.conf, creating or updating as needed."""
+    target_line = f'color_theme = "{theme_name}"'
+    if conf_path.exists():
+        lines = conf_path.read_text().splitlines()
+        for i, line in enumerate(lines):
+            if line.startswith("color_theme"):
+                lines[i] = target_line
+                conf_path.write_text("\n".join(lines) + "\n")
+                return
+        # Key not found — append
+        lines.append(target_line)
+        conf_path.write_text("\n".join(lines) + "\n")
+    else:
+        conf_path.write_text(target_line + "\n")
 
 
 def render_template(src: Path, subs: dict[str, str]) -> str:
@@ -357,6 +402,44 @@ def configure_claude_code() -> None:
         print("  ~/.claude/settings.json already up to date")
 
 
+def configure_app_icons() -> None:
+    """Set custom app icons declaratively using fileicon."""
+    if not shutil.which("fileicon"):
+        print("  skipped (fileicon not installed — run bootstrap.sh first)")
+        return
+
+    for app_path, icon_path in APP_ICON_MAP.items():
+        app = Path(app_path)
+        icon = Path(icon_path)
+        label = app.stem
+
+        if not app.exists():
+            print(f"  {label:20s} skipped (not installed)")
+            continue
+
+        if not icon.exists():
+            print(f"  {label:20s} skipped (icon source missing: {icon})")
+            continue
+
+        result = subprocess.run(
+            ["fileicon", "test", str(app)],
+            capture_output=True,
+        )
+        if result.returncode == 0:
+            print(f"  {label:20s} skipped (custom icon already set)")
+            continue
+
+        result = subprocess.run(
+            ["fileicon", "set", str(app), str(icon)],
+            capture_output=True,
+        )
+        if result.returncode == 0:
+            print(f"  {label:20s} set ({icon.name})")
+        else:
+            stderr = result.stderr.decode().strip()
+            print(f"  {label:20s} failed ({stderr})")
+
+
 def main() -> None:
     print("Dotfiles provisioning\n")
 
@@ -412,7 +495,12 @@ def main() -> None:
     configure_claude_code()
     print()
 
-    # Step 5: Secrets
+    # Step 5: App Icons
+    print("App Icons:\n")
+    configure_app_icons()
+    print()
+
+    # Step 6: Secrets
     provision_secrets()
 
     print("Done.")

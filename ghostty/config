@@ -2,7 +2,7 @@
 font-family = "Maple Mono NF"
 font-size = 14
 
-# Theme — Plastic Beach custom
+# Theme
 theme = __THEME_NAME__
 
 # Window

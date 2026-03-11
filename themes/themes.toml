@@ -51,16 +51,16 @@ dim     = "#010305"
 accent  = "#081420"
 sel     = "#0c1c30"
 fg      = "#a0b8c8"
-dim_fg  = "#4a5868"
+dim_fg  = "#546472"
 bright  = "#c8d8e4"
 
 [deep-water.accents]
 primary   = "#00e0ff"
-secondary = "#1848cc"
+secondary = "#2058d8"
 warn      = "#a87028"
-error     = "#c02020"
+error     = "#d03030"
 success   = "#18b870"
-purple    = "#6038c0"
+purple    = "#7040d0"
 pink      = "#b050c0"
 yellow    = "#80a820"
 
@@ -69,8 +69,8 @@ cursor      = "#00e0ff"
 cursor_text = "#02050a"
 sel_bg      = "#0c1c30"
 sel_fg      = "#c8d8e4"
-ansi        = ["#02050a", "#c02020", "#18b870", "#a87028", "#1848cc", "#6038c0", "#00a8b8", "#a0b8c8"]
-ansi_bright = ["#0c1c30", "#e03030", "#28d888", "#c89038", "#2858e0", "#7848d0", "#00e0ff", "#c8d8e4"]
+ansi        = ["#02050a", "#d03030", "#18b870", "#a87028", "#2058d8", "#7040d0", "#00a8b8", "#a0b8c8"]
+ansi_bright = ["#0c1c30", "#e03030", "#28d888", "#c89038", "#3068e8", "#8858d8", "#00e0ff", "#c8d8e4"]
 
 [deep-water.preview]
 comment = "bioluminescence"
@@ -100,9 +100,9 @@ bright  = "#f0e8d8"
 primary   = "#d88840"
 secondary = "#7a9050"
 warn      = "#d06020"
-error     = "#c83838"
-success   = "#6a9848"
-purple    = "#907088"
+error     = "#d04040"
+success   = "#7a9050"
+purple    = "#a07898"
 pink      = "#c07868"
 yellow    = "#c0a030"
 
@@ -111,8 +111,8 @@ cursor      = "#d88840"
 cursor_text = "#1a1610"
 sel_bg      = "#3a3225"
 sel_fg      = "#f0e8d8"
-ansi        = ["#1a1610", "#c83838", "#6a9848", "#c0a030", "#7a9050", "#907088", "#a08050", "#d8cfc0"]
-ansi_bright = ["#3a3225", "#d84848", "#7ab058", "#d0b040", "#8aa060", "#a08098", "#b89868", "#f0e8d8"]
+ansi        = ["#1a1610", "#d04040", "#7a9050", "#c0a030", "#7a9050", "#a07898", "#a08050", "#d8cfc0"]
+ansi_bright = ["#3a3225", "#e05050", "#8aa060", "#d0b040", "#8aa060", "#b088a8", "#b89868", "#f0e8d8"]
 
 [desert-island.preview]
 comment = "driftwood"

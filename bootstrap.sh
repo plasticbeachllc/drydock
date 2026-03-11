@@ -42,6 +42,7 @@ brew install \
   lazyjj \
   dmmulroy/tap/jj-starship \
   1password-cli \
+  fileicon \
   rustup-init \
   neovim
 
