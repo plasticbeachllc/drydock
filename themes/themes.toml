@@ -1,0 +1,97 @@
+[plastic-beach]
+name = "Plastic Beach Basic"
+tagline = "teal/cyan tropical"
+
+[plastic-beach.base]
+bg      = "#0c1a20"
+dim     = "#091519"
+accent  = "#1a3545"
+sel     = "#2a4555"
+fg      = "#d0c8be"
+dim_fg  = "#8a9a9a"
+bright  = "#e8e0d6"
+
+[plastic-beach.accents]
+primary   = "#20e8d0"
+secondary = "#30c0e8"
+warn      = "#f08030"
+error     = "#e05050"
+success   = "#30d890"
+purple    = "#9068cc"
+pink      = "#f090c0"
+yellow    = "#e0d050"
+
+[plastic-beach.preview]
+comment   = "sea glass"
+module    = "plastic"
+var       = "beach"
+var2      = "tide"
+method    = "wave"
+prop      = "rising"
+string    = "shore break"
+
+
+[deep-water]
+name = "Deep Water"
+tagline = "cold blue, abyssal pressure"
+
+[deep-water.base]
+bg      = "#02050a"
+dim     = "#010305"
+accent  = "#081420"
+sel     = "#0c1c30"
+fg      = "#a0b8c8"
+dim_fg  = "#4a5868"
+bright  = "#c8d8e4"
+
+[deep-water.accents]
+primary   = "#00e0ff"
+secondary = "#1848cc"
+warn      = "#a87028"
+error     = "#c02020"
+success   = "#18b870"
+purple    = "#6038c0"
+pink      = "#b050c0"
+yellow    = "#80a820"
+
+[deep-water.preview]
+comment   = "bioluminescence"
+module    = "abyss"
+var       = "deep"
+var2      = "glow"
+method    = "phosphor"
+prop      = "fading"
+string    = "midnight zone"
+
+
+[desert-island]
+name = "Desert Island"
+tagline = "warm amber/earth, no cool blues"
+
+[desert-island.base]
+bg      = "#1a1610"
+dim     = "#12100c"
+accent  = "#2a2418"
+sel     = "#3a3225"
+fg      = "#d8cfc0"
+dim_fg  = "#908070"
+bright  = "#f0e8d8"
+
+[desert-island.accents]
+primary   = "#d88840"
+secondary = "#7a9050"
+warn      = "#d06020"
+error     = "#c83838"
+success   = "#6a9848"
+purple    = "#907088"
+pink      = "#c07868"
+yellow    = "#c0a030"
+
+[desert-island.preview]
+comment   = "driftwood"
+module    = "tropics"
+var       = "island"
+var2      = "sun"
+method    = "heat"
+prop      = "setting"
+string    = "golden hour"
