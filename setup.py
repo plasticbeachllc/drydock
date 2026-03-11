@@ -1,5 +1,5 @@
 # /// script
-# requires-python = ">=3.10"
+# requires-python = ">=3.11"
 # ///
 """Dotfiles provisioning script — renders templates, creates symlinks, provisions secrets."""
 
@@ -12,6 +12,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent
 RENDERED_DIR = Path.home() / ".config" / "dotfiles" / "rendered"
 IDENTITY_FILE = Path.home() / ".config" / "dotfiles" / "identity.json"
+GENERATED_DIR = Path.home() / ".config" / "dotfiles"
 
 # Placeholders that setup.py will substitute with real values
 PLACEHOLDERS = ["__NAME__", "__EMAIL__"]
@@ -25,6 +26,7 @@ MANUAL_SECRETS = [
 ZSHRC_LOCAL = Path.home() / ".zshrc.local"
 
 # Symlink mapping: repo template path -> target symlink location
+# (ghostty theme entry is added dynamically based on selected theme)
 SYMLINK_MAP = {
     "shell/zshrc":          Path.home() / ".zshrc",
     "shell/zshenv":         Path.home() / ".zshenv",
@@ -36,7 +38,6 @@ SYMLINK_MAP = {
     "sheldon/plugins.toml": Path.home() / ".config" / "sheldon" / "plugins.toml",
     "starship/starship.toml": Path.home() / ".config" / "starship.toml",
     "ghostty/config":       Path.home() / ".config" / "ghostty" / "config",
-    "ghostty/themes/Plastic Beach Basic": Path.home() / ".config" / "ghostty" / "themes" / "Plastic Beach Basic",
     "nvim":                 Path.home() / ".config" / "nvim",
     "claude/statusline.sh": Path.home() / ".claude" / "statusline.sh",
 }
@@ -90,20 +91,112 @@ def prompt_identity() -> dict[str, str]:
     return identity
 
 
-def render_template(src: Path, identity: dict[str, str]) -> str:
+def prompt_theme() -> tuple[str, dict]:
+    """Prompt for theme selection, returns (theme_key, theme_dict)."""
+    # Import here so the module isn't required at top level
+    sys.path.insert(0, str(REPO_ROOT / "themes"))
+    from generate import load_themes
+
+    themes = load_themes()
+    theme_keys = list(themes.keys())
+
+    # Load previous selection
+    identity = load_identity()
+    prev = identity.get("__THEME__", "")
+    default_idx = 0
+    for i, key in enumerate(theme_keys):
+        if key == prev:
+            default_idx = i
+            break
+
+    for i, key in enumerate(theme_keys):
+        t = themes[key]
+        marker = "*" if key == prev else " "
+        print(f"  {marker}[{i + 1}] {t['name']} — {t['tagline']}")
+
+    prompt = f"  choice [{default_idx + 1}]: "
+    choice = input(prompt).strip()
+    if not choice:
+        idx = default_idx
+    else:
+        try:
+            idx = int(choice) - 1
+            if not 0 <= idx < len(theme_keys):
+                raise ValueError
+        except ValueError:
+            print("Invalid choice.")
+            sys.exit(1)
+
+    selected_key = theme_keys[idx]
+    selected = themes[selected_key]
+
+    # Save selection
+    identity["__THEME__"] = selected_key
+    save_identity(identity)
+
+    return selected_key, selected
+
+
+def generate_theme_files(theme_key: str, theme: dict) -> dict[str, str]:
+    """Generate all theme-dependent files. Returns placeholder dict for templates."""
+    sys.path.insert(0, str(REPO_ROOT / "themes"))
+    from generate import (
+        ghostty_theme,
+        lazygit_config,
+        nvim_dashboard_colors,
+        nvim_theme_colors,
+        theme_placeholders,
+    )
+
+    GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Ghostty theme file — written to rendered dir, symlinked dynamically
+    ghostty_theme_dir = RENDERED_DIR / "ghostty" / "themes"
+    ghostty_theme_dir.mkdir(parents=True, exist_ok=True)
+    ghostty_theme_path = ghostty_theme_dir / theme["name"]
+    ghostty_theme_path.write_text(ghostty_theme(theme))
+    print(f"  generated ghostty theme: {theme['name']}")
+
+    # Add dynamic ghostty theme symlink
+    target = Path.home() / ".config" / "ghostty" / "themes" / theme["name"]
+    SYMLINK_MAP[f"__generated_ghostty_theme__"] = (ghostty_theme_path, target)
+
+    # Neovim catppuccin colors
+    nvim_colors_path = GENERATED_DIR / "theme_colors.lua"
+    nvim_colors_path.write_text(nvim_theme_colors(theme))
+    print(f"  generated nvim theme colors")
+
+    # Neovim dashboard colors
+    dash_path = GENERATED_DIR / "dashboard_colors.lua"
+    dash_path.write_text(nvim_dashboard_colors(theme))
+    print(f"  generated nvim dashboard colors")
+
+    # Lazygit config
+    lazygit_dir = Path.home() / ".config" / "lazygit"
+    lazygit_dir.mkdir(parents=True, exist_ok=True)
+    lazygit_path = lazygit_dir / "config.yml"
+    lazygit_path.write_text(lazygit_config(theme))
+    print(f"  generated lazygit config")
+
+    return theme_placeholders(theme)
+
+
+def render_template(src: Path, subs: dict[str, str]) -> str:
     """Read a template file and substitute placeholders."""
     content = src.read_text()
-    for placeholder, value in identity.items():
+    # Sort by key length descending to avoid partial matches
+    # (e.g. __THEME_NAME__ must be replaced before __NAME__)
+    for placeholder, value in sorted(subs.items(), key=lambda x: -len(x[0])):
         content = content.replace(placeholder, value)
     return content
 
 
-def needs_templating(src: Path) -> bool:
+def needs_templating(src: Path, all_placeholders: list[str]) -> bool:
     """Check if a file contains any placeholders."""
     if src.is_dir():
         return False
     content = src.read_text()
-    return any(p in content for p in PLACEHOLDERS)
+    return any(p in content for p in all_placeholders)
 
 
 def create_symlink(source: Path, target: Path) -> str:
@@ -260,20 +353,40 @@ def main() -> None:
     identity = prompt_identity()
     print()
 
-    # Step 2: Symlinks
+    # Step 2: Theme
+    print("Theme:\n")
+    theme_key, theme = prompt_theme()
+    print(f"\n  Selected: {theme['name']}\n")
+    print("Generating theme configs:\n")
+    theme_subs = generate_theme_files(theme_key, theme)
+    print()
+
+    # Merge all substitutions: identity + theme placeholders
+    all_subs = {**identity, **theme_subs}
+    all_placeholder_keys = list(all_subs.keys())
+
+    # Step 3: Symlinks
     print("Symlinks:\n")
     RENDERED_DIR.mkdir(parents=True, exist_ok=True)
 
-    for repo_rel, target in SYMLINK_MAP.items():
+    for repo_rel, target_or_tuple in SYMLINK_MAP.items():
+        # Handle dynamically generated files (stored as tuples)
+        if isinstance(target_or_tuple, tuple):
+            source, target = target_or_tuple
+            status = create_symlink(source, target)
+            print(f"  {status:40s} {target} -> {source}")
+            continue
+
+        target = target_or_tuple
         src = REPO_ROOT / repo_rel
         if not src.exists():
             print(f"  MISSING  {repo_rel} (skipped)")
             continue
 
-        if needs_templating(src):
+        if needs_templating(src, all_placeholder_keys):
             rendered = RENDERED_DIR / repo_rel
             rendered.parent.mkdir(parents=True, exist_ok=True)
-            rendered.write_text(render_template(src, identity))
+            rendered.write_text(render_template(src, all_subs))
             status = create_symlink(rendered, target)
             print(f"  {status:40s} {target} -> {rendered}")
         else:
@@ -282,12 +395,12 @@ def main() -> None:
 
     print()
 
-    # Step 3: Claude Code
+    # Step 4: Claude Code
     print("Claude Code:\n")
     configure_claude_code()
     print()
 
-    # Step 4: Secrets
+    # Step 5: Secrets
     provision_secrets()
 
     print("Done.")

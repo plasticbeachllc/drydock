@@ -1,17 +1,11 @@
 #!/bin/bash
-# Claude Code status line — Plastic Beach
+# Claude Code status line — themed by setup.py
 # Single line: model · project · jj bookmark ● · context bar
 
 input=$(cat)
 
-# ── Plastic Beach palette ──────────────────────────────
-DIM='\033[38;2;138;154;154m'
-SEP='\033[38;2;42;69;85m'
-BLUE='\033[38;2;74;176;200m'
-TEAL='\033[38;2;64;191;176m'
-ORANGE='\033[38;2;232;133;74m'
-GOLD='\033[38;2;212;160;80m'
-RED='\033[38;2;208;96;96m'
+# ── Theme palette ──────────────────────────────────────
+__THEME_PALETTE__
 RST='\033[0m'
 
 # ── Extract data ───────────────────────────────────────

@@ -7,7 +7,7 @@ $character"""
 [directory]
 truncation_length = 3
 truncate_to_repo = true
-style = "bold #4ab0c8"
+style = "bold __THEME_DIR_COLOR__"
 
 # jj-starship: unified jj/git prompt module
 [custom.jj]
@@ -23,5 +23,5 @@ disabled = true
 disabled = true
 
 [character]
-success_symbol = "[❯](#40bfb0)"
-error_symbol = "[❯](#d06060)"
+success_symbol = "[❯](__THEME_SUCCESS_COLOR__)"
+error_symbol = "[❯](__THEME_ERROR_COLOR__)"

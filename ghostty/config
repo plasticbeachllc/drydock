@@ -3,7 +3,7 @@ font-family = "Maple Mono NF"
 font-size = 14
 
 # Theme — Plastic Beach custom
-theme = Plastic Beach Basic
+theme = __THEME_NAME__
 
 # Window
 window-padding-x = 12

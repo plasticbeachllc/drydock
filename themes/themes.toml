@@ -1,6 +1,7 @@
 [plastic-beach]
 name = "Plastic Beach Basic"
 tagline = "teal/cyan tropical"
+motd_icon = "\U0001F30A"
 
 [plastic-beach.base]
 bg      = "#0c1a20"
@@ -21,19 +22,28 @@ purple    = "#9068cc"
 pink      = "#f090c0"
 yellow    = "#e0d050"
 
+[plastic-beach.terminal]
+cursor      = "#40bfb0"
+cursor_text = "#0c1a20"
+sel_bg      = "#1a3545"
+sel_fg      = "#e8e0d6"
+ansi        = ["#0c1a20", "#d06060", "#50b890", "#d4a050", "#4ab0c8", "#c07ab0", "#40bfb0", "#d0c8be"]
+ansi_bright = ["#1a3545", "#e07070", "#60d8a0", "#e4b060", "#5ac0d8", "#d08ac0", "#50dfc8", "#e8e0d6"]
+
 [plastic-beach.preview]
-comment   = "sea glass"
-module    = "plastic"
-var       = "beach"
-var2      = "tide"
-method    = "wave"
-prop      = "rising"
-string    = "shore break"
+comment = "sea glass"
+module  = "plastic"
+var     = "beach"
+var2    = "tide"
+method  = "wave"
+prop    = "rising"
+string  = "shore break"
 
 
 [deep-water]
 name = "Deep Water"
 tagline = "cold blue, abyssal pressure"
+motd_icon = "\U0001FAE7"
 
 [deep-water.base]
 bg      = "#02050a"
@@ -54,19 +64,28 @@ purple    = "#6038c0"
 pink      = "#b050c0"
 yellow    = "#80a820"
 
+[deep-water.terminal]
+cursor      = "#00e0ff"
+cursor_text = "#02050a"
+sel_bg      = "#0c1c30"
+sel_fg      = "#c8d8e4"
+ansi        = ["#02050a", "#c02020", "#18b870", "#a87028", "#1848cc", "#6038c0", "#00a8b8", "#a0b8c8"]
+ansi_bright = ["#0c1c30", "#e03030", "#28d888", "#c89038", "#2858e0", "#7848d0", "#00e0ff", "#c8d8e4"]
+
 [deep-water.preview]
-comment   = "bioluminescence"
-module    = "abyss"
-var       = "deep"
-var2      = "glow"
-method    = "phosphor"
-prop      = "fading"
-string    = "midnight zone"
+comment = "bioluminescence"
+module  = "abyss"
+var     = "deep"
+var2    = "glow"
+method  = "phosphor"
+prop    = "fading"
+string  = "midnight zone"
 
 
 [desert-island]
 name = "Desert Island"
 tagline = "warm amber/earth, no cool blues"
+motd_icon = "\U0001F3DD\uFE0F"
 
 [desert-island.base]
 bg      = "#1a1610"
@@ -87,11 +106,19 @@ purple    = "#907088"
 pink      = "#c07868"
 yellow    = "#c0a030"
 
+[desert-island.terminal]
+cursor      = "#d88840"
+cursor_text = "#1a1610"
+sel_bg      = "#3a3225"
+sel_fg      = "#f0e8d8"
+ansi        = ["#1a1610", "#c83838", "#6a9848", "#c0a030", "#7a9050", "#907088", "#a08050", "#d8cfc0"]
+ansi_bright = ["#3a3225", "#d84848", "#7ab058", "#d0b040", "#8aa060", "#a08098", "#b89868", "#f0e8d8"]
+
 [desert-island.preview]
-comment   = "driftwood"
-module    = "tropics"
-var       = "island"
-var2      = "sun"
-method    = "heat"
-prop      = "setting"
-string    = "golden hour"
+comment = "driftwood"
+module  = "tropics"
+var     = "island"
+var2    = "sun"
+method  = "heat"
+prop    = "setting"
+string  = "golden hour"
