@@ -1,0 +1,1 @@
+-- Custom autocommands (LazyVim defaults are already loaded)

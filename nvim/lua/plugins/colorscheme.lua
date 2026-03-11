@@ -1,0 +1,60 @@
+return {
+  {
+    "catppuccin/nvim",
+    name = "catppuccin",
+    lazy = false,
+    priority = 1000,
+    opts = {
+      flavour = "mocha",
+      color_overrides = {
+        mocha = {
+          -- Plastic Beach palette
+          base = "#0c1a20",
+          mantle = "#091519",
+          crust = "#060f12",
+          surface0 = "#1a3545",
+          surface1 = "#2a4555",
+          surface2 = "#3a5565",
+          overlay0 = "#636378",
+          overlay1 = "#8a9a9a",
+          overlay2 = "#a0aca8",
+          text = "#d0c8be",
+          subtext0 = "#b0a898",
+          subtext1 = "#c0b8ae",
+          lavender = "#4ab0c8",
+          blue = "#4ab0c8",
+          sapphire = "#3a9ab8",
+          sky = "#5ac0d8",
+          teal = "#40bfb0",
+          green = "#50b890",
+          yellow = "#d0c070",
+          peach = "#e8854a",
+          maroon = "#d06060",
+          red = "#d06060",
+          mauve = "#8b6fc0",
+          pink = "#f0b0d0",
+          flamingo = "#f0b0d0",
+          rosewater = "#e8e0d6",
+        },
+      },
+      integrations = {
+        cmp = true,
+        gitsigns = true,
+        mason = true,
+        mini = true,
+        native_lsp = { enabled = true },
+        notify = true,
+        telescope = { enabled = true },
+        treesitter = true,
+        which_key = true,
+      },
+    },
+  },
+
+  {
+    "LazyVim/LazyVim",
+    opts = {
+      colorscheme = "catppuccin",
+    },
+  },
+}

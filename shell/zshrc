@@ -94,8 +94,12 @@ alias jds='jj describe'
 export DELTA_PAGER="less -R"
 export BAT_THEME="Catppuccin Mocha"
 
-# --- Secrets (fetched from 1Password — never stored on disk) ---
-export OPENAI_API_KEY=$(op read "op://Personal/openai-dotfile/credential" --account my --no-newline)
+# --- Secrets ---
+# Prefer 1Password if available and authenticated, otherwise fall back to
+# values set in ~/.zshrc.local (written by setup.py during provisioning)
+if command -v op &>/dev/null && op whoami &>/dev/null 2>&1; then
+    export OPENAI_API_KEY=$(op read "op://Personal/openai-dotfile/credential" --account my --no-newline 2>/dev/null)
+fi
 
 # --- Plastic Beach MOTD ---
 if [[ -o interactive ]] && [[ -z "$PLASTIC_BEACH_MOTD_SHOWN" ]]; then
