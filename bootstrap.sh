@@ -16,6 +16,9 @@ fi
 echo "Installing casks..."
 brew install --cask ghostty 2>/dev/null || true
 brew install --cask font-maple-mono-nf 2>/dev/null || true
+brew install --cask google-chrome 2>/dev/null || true
+brew install --cask 1password 2>/dev/null || true
+brew install --cask telegram 2>/dev/null || true
 
 # --- Formulae (CLI tools) ---
 echo "Installing CLI tools..."

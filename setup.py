@@ -26,6 +26,19 @@ MANUAL_SECRETS = [
 
 ZSHRC_LOCAL = Path.home() / ".zshrc.local"
 
+# 1Password team account — sign-in address (not secret, just a subdomain)
+OP_TEAM_ADDRESS = "plasticbeach.1password.com"
+
+# 1Password SSH agent socket path (macOS)
+OP_SSH_AGENT_SOCK = (
+    Path.home()
+    / "Library"
+    / "Group Containers"
+    / "2BUA8C4S2C.com.1password"
+    / "t"
+    / "agent.sock"
+)
+
 # Symlink mapping: repo template path -> target symlink location
 # (ghostty theme entry is added dynamically based on selected theme)
 SYMLINK_MAP = {
@@ -41,6 +54,7 @@ SYMLINK_MAP = {
     "ghostty/config":       Path.home() / ".config" / "ghostty" / "config",
     "nvim":                 Path.home() / ".config" / "nvim",
     "claude/statusline.sh": Path.home() / ".claude" / "statusline.sh",
+    "ssh/config":           Path.home() / ".ssh" / "config",
 }
 
 # App icon overrides: {app_path: icon_source_path}
@@ -244,9 +258,15 @@ def needs_templating(src: Path, all_placeholders: list[str]) -> bool:
     return any(p in content for p in all_placeholders)
 
 
+SSH_RESTRICTED_DIRS = {Path.home() / ".ssh"}
+
+
 def create_symlink(source: Path, target: Path) -> str:
     """Create a symlink, handling existing files. Returns status string."""
     target.parent.mkdir(parents=True, exist_ok=True)
+    # SSH requires ~/.ssh/ to be 0700
+    if target.parent in SSH_RESTRICTED_DIRS:
+        target.parent.chmod(0o700)
 
     if target.is_symlink():
         if target.resolve() == source.resolve():
@@ -297,6 +317,55 @@ def op_signin() -> bool:
     return False
 
 
+def op_account_staged() -> bool:
+    """Check if the team 1Password account is already added to the CLI."""
+    try:
+        result = subprocess.run(
+            ["op", "account", "list", "--format=json"],
+            capture_output=True, text=True, check=True,
+        )
+        accounts = json.loads(result.stdout)
+        return any(a.get("url") == OP_TEAM_ADDRESS for a in accounts)
+    except (FileNotFoundError, subprocess.CalledProcessError, json.JSONDecodeError):
+        return False
+
+
+def op_stage_account(email: str) -> bool:
+    """Pre-register the team 1Password account so signin only needs master password."""
+    print(f"  Adding {OP_TEAM_ADDRESS} account for {email}...")
+    result = subprocess.run([
+        "op", "account", "add",
+        "--address", OP_TEAM_ADDRESS,
+        "--email", email,
+    ])
+    return result.returncode == 0
+
+
+def check_op_ssh_agent() -> None:
+    """Check whether the 1Password SSH agent socket is available."""
+    if OP_SSH_AGENT_SOCK.exists():
+        print("  1Password SSH agent: active")
+    else:
+        print("  1Password SSH agent: not found")
+        print("    -> Open 1Password > Settings > Developer > enable 'Use the SSH agent'")
+
+
+def set_default_browser() -> None:
+    """Set Chrome as default browser (macOS shows a confirmation dialog)."""
+    chrome = Path("/Applications/Google Chrome.app")
+    if not chrome.exists():
+        print("  skipped (Chrome not installed)")
+        return
+    result = subprocess.run(
+        ["open", "-a", "Google Chrome", "--args", "--make-default-browser"],
+        capture_output=True,
+    )
+    if result.returncode == 0:
+        print("  Chrome set as default browser (confirm in the dialog if prompted)")
+    else:
+        print("  failed to set default browser")
+
+
 def _ensure_zshrc_local_permissions() -> None:
     """Ensure ~/.zshrc.local has restrictive permissions (0600)."""
     if ZSHRC_LOCAL.exists():
@@ -322,57 +391,77 @@ def write_secret_to_zshrc_local(name: str, value: str) -> None:
     _ensure_zshrc_local_permissions()
 
 
-def provision_secrets() -> None:
-    """Interactive secret provisioning: 1Password auth or manual entry.
+def provision_secrets(identity: dict[str, str]) -> None:
+    """Interactive secret provisioning: 1Password account staging + auth.
 
-    The op:// URIs live in shell/zshrc — this step just ensures the user
-    is either authenticated with `op` (so zshrc can fetch at runtime) or
-    has provided manual fallback values in ~/.zshrc.local.
+    Stages the team 1Password account so the user only needs their master
+    password (or Touch ID) to authenticate. Falls back to manual entry
+    for environments without 1Password.
     """
-    print("Secrets:\n")
+    print("1Password:\n")
 
     has_op = op_available()
 
-    if has_op:
-        print("  1Password CLI detected.")
-        if op_authenticated():
-            print("  Already authenticated — zshrc will fetch secrets at runtime.")
-            print()
-            return
-        print("  Not currently signed in.\n")
-        print("  [1] Sign in to 1Password now (secrets fetched live each shell session)")
-        print("  [2] Enter secrets manually (written to ~/.zshrc.local)")
-        print("  [3] Skip for now")
-    else:
+    if not has_op:
         print("  1Password CLI not installed.")
         print("  Secrets defined in zshrc will be unavailable unless set manually.\n")
         print("  [1] Enter secrets manually (written to ~/.zshrc.local)")
         print("  [2] Skip for now")
-
-    choice = input("  choice: ").strip()
-
-    if has_op and choice == "1":
-        if op_signin():
-            print("  Authenticated — zshrc will fetch secrets at runtime.")
+        choice = input("  choice: ").strip()
+        if choice == "1":
+            print()
+            for name in MANUAL_SECRETS:
+                value = input(f"  {name}: ").strip()
+                if value:
+                    write_secret_to_zshrc_local(name, value)
+                    print(f"    -> written to ~/.zshrc.local")
+                else:
+                    print(f"    -> skipped")
         else:
-            print("  Sign-in failed. You can re-run setup.py or set secrets in ~/.zshrc.local.")
+            print("  Skipped.")
         print()
         return
 
-    manual = (has_op and choice == "2") or (not has_op and choice == "1")
-    if manual:
-        print()
-        for name in MANUAL_SECRETS:
-            value = input(f"  {name}: ").strip()
-            if value:
-                write_secret_to_zshrc_local(name, value)
-                print(f"    -> written to ~/.zshrc.local")
+    print("  1Password CLI detected.")
+
+    # Stage team account if not already added
+    if not op_account_staged():
+        email = identity.get("__EMAIL__", "")
+        if email:
+            op_stage_account(email)
+        else:
+            print("  warning: no email in identity, skipping account staging")
+
+    # Authenticate if needed
+    if op_authenticated():
+        print("  Already authenticated — zshrc will fetch secrets at runtime.")
+    else:
+        print("  Not currently signed in.\n")
+        print("  [1] Sign in now (secrets fetched live each shell session)")
+        print("  [2] Enter secrets manually (written to ~/.zshrc.local)")
+        print("  [3] Skip for now")
+        choice = input("  choice: ").strip()
+
+        if choice == "1":
+            if op_signin():
+                print("  Authenticated — zshrc will fetch secrets at runtime.")
             else:
-                print(f"    -> skipped")
-        print()
-        return
+                print("  Sign-in failed. Re-run setup.py or set secrets in ~/.zshrc.local.")
+        elif choice == "2":
+            print()
+            for name in MANUAL_SECRETS:
+                value = input(f"  {name}: ").strip()
+                if value:
+                    write_secret_to_zshrc_local(name, value)
+                    print(f"    -> written to ~/.zshrc.local")
+                else:
+                    print(f"    -> skipped")
+        else:
+            print("  Skipped.")
 
-    print("  Skipped.")
+    # Check SSH agent status
+    print()
+    check_op_ssh_agent()
     print()
 
 
@@ -500,8 +589,13 @@ def main() -> None:
     configure_app_icons()
     print()
 
-    # Step 6: Secrets
-    provision_secrets()
+    # Step 6: Default Browser
+    print("Default Browser:\n")
+    set_default_browser()
+    print()
+
+    # Step 7: 1Password & Secrets
+    provision_secrets(identity)
 
     print("Done.")
 
