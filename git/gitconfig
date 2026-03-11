@@ -1,0 +1,9 @@
+[user]
+	name = __NAME__
+	email = __EMAIL__
+[pull]
+	rebase = false
+[color]
+	ui = auto
+[color "status"]
+	branch = magenta
