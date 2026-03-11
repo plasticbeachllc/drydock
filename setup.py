@@ -27,6 +27,7 @@ SYMLINK_MAP = {
     "sheldon/plugins.toml": Path.home() / ".config" / "sheldon" / "plugins.toml",
     "starship/starship.toml": Path.home() / ".config" / "starship.toml",
     "ghostty/config":       Path.home() / ".config" / "ghostty" / "config",
+    "ghostty/themes/Plastic Beach Basic": Path.home() / ".config" / "ghostty" / "themes" / "Plastic Beach Basic",
 }
 
 
