@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Plastic Beach Theme Gallery</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #111; color: #ccc; font-family: "Maple Mono NF", "SF Mono", monospace; padding: 40px; }
+  h1 { text-align: center; margin-bottom: 40px; font-size: 14px; letter-spacing: 4px; text-transform: uppercase; color: #666; }
+  .themes { display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; }
+  .theme { width: 380px; border-radius: 12px; overflow: hidden; }
+  .theme-header { padding: 20px 24px 12px; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; }
+  .theme-body { padding: 0 24px 24px; }
+  .section-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; margin: 16px 0 8px; opacity: 0.5; }
+  .swatches { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 18px; }
+  .swatch { width: 36px; height: 36px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 8px; letter-spacing: 0.5px; position: relative; }
+  .swatch span { position: absolute; bottom: -14px; font-size: 8px; white-space: nowrap; opacity: 0.6; }
+  .preview { margin-top: 20px; border-radius: 8px; padding: 16px; font-size: 12px; line-height: 1.8; }
+  .preview .comment { opacity: 0.5; }
+  .preview .keyword { font-weight: bold; }
+  .preview .cursor { display: inline-block; width: 8px; height: 16px; vertical-align: text-bottom; animation: blink 1s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+<h1>dotfiles theme gallery</h1>
+<div class="themes">
+
+  <!-- PLASTIC BEACH BASIC — teal/cyan tropical -->
+  <div class="theme" style="background: #0c1a20;">
+    <div class="theme-header" style="color: #20e8d0;">
+      ░▒▓ Plastic Beach Basic ▓▒░
+    </div>
+    <div class="theme-body">
+      <div class="section-label" style="color: #8a9a9a;">base</div>
+      <div class="swatches">
+        <div class="swatch" style="background:#0c1a20; border: 1px solid #2a4555;"><span style="color:#8a9a9a">bg</span></div>
+        <div class="swatch" style="background:#091519;"><span style="color:#8a9a9a">dim</span></div>
+        <div class="swatch" style="background:#1a3545;"><span style="color:#8a9a9a">accent</span></div>
+        <div class="swatch" style="background:#2a4555;"><span style="color:#8a9a9a">sel</span></div>
+        <div class="swatch" style="background:#d0c8be;"><span style="color:#8a9a9a">fg</span></div>
+        <div class="swatch" style="background:#8a9a9a;"><span style="color:#8a9a9a">dim</span></div>
+        <div class="swatch" style="background:#e8e0d6;"><span style="color:#8a9a9a">bright</span></div>
+      </div>
+      <div class="section-label" style="color: #8a9a9a;">accents</div>
+      <div class="swatches">
+        <div class="swatch" style="background:#20e8d0;"><span style="color:#8a9a9a">primary</span></div>
+        <div class="swatch" style="background:#30c0e8;"><span style="color:#8a9a9a">secondary</span></div>
+        <div class="swatch" style="background:#f08030;"><span style="color:#8a9a9a">warn</span></div>
+        <div class="swatch" style="background:#e05050;"><span style="color:#8a9a9a">error</span></div>
+        <div class="swatch" style="background:#30d890;"><span style="color:#8a9a9a">success</span></div>
+        <div class="swatch" style="background:#9068cc;"><span style="color:#8a9a9a">purple</span></div>
+        <div class="swatch" style="background:#f090c0;"><span style="color:#8a9a9a">pink</span></div>
+        <div class="swatch" style="background:#e0d050;"><span style="color:#8a9a9a">yellow</span></div>
+      </div>
+      <div class="preview" style="background: #091519;">
+        <span class="comment" style="color:#8a9a9a;">-- sea glass</span><br>
+        <span class="keyword" style="color:#9068cc;">local</span> <span style="color:#30c0e8;">beach</span> <span style="color:#d0c8be;">=</span> <span class="keyword" style="color:#9068cc;">require</span><span style="color:#d0c8be;">(</span><span style="color:#30d890;">"plastic"</span><span style="color:#d0c8be;">)</span><br>
+        <span class="keyword" style="color:#9068cc;">local</span> <span style="color:#d0c8be;">tide =</span> <span style="color:#30c0e8;">beach</span><span style="color:#d0c8be;">.</span><span style="color:#f08030;">wave</span><span style="color:#d0c8be;">(</span><span style="color:#e0d050;">42</span><span style="color:#d0c8be;">)</span><br>
+        <span class="keyword" style="color:#9068cc;">if</span> <span style="color:#d0c8be;">tide.</span><span style="color:#e05050;">rising</span> <span class="keyword" style="color:#9068cc;">then</span><br>
+        <span style="color:#d0c8be;">  </span><span style="color:#20e8d0;">print</span><span style="color:#d0c8be;">(</span><span style="color:#30d890;">"shore break"</span><span style="color:#d0c8be;">)</span><br>
+        <span class="keyword" style="color:#9068cc;">end</span><span class="cursor" style="background:#20e8d0;"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEEP WATER — cold blue, abyssal pressure -->
+  <div class="theme" style="background: #02050a;">
+    <div class="theme-header" style="color: #00e0ff;">
+      ░▒▓ Deep Water ▓▒░
+    </div>
+    <div class="theme-body">
+      <div class="section-label" style="color: #4a5868;">base</div>
+      <div class="swatches">
+        <div class="swatch" style="background:#02050a; border: 1px solid #0c1c30;"><span style="color:#4a5868">bg</span></div>
+        <div class="swatch" style="background:#010305;"><span style="color:#4a5868">dim</span></div>
+        <div class="swatch" style="background:#081420;"><span style="color:#4a5868">accent</span></div>
+        <div class="swatch" style="background:#0c1c30;"><span style="color:#4a5868">sel</span></div>
+        <div class="swatch" style="background:#a0b8c8;"><span style="color:#4a5868">fg</span></div>
+        <div class="swatch" style="background:#4a5868;"><span style="color:#4a5868">dim</span></div>
+        <div class="swatch" style="background:#c8d8e4;"><span style="color:#4a5868">bright</span></div>
+      </div>
+      <div class="section-label" style="color: #4a5868;">accents</div>
+      <div class="swatches">
+        <div class="swatch" style="background:#00e0ff;"><span style="color:#4a5868">primary</span></div>
+        <div class="swatch" style="background:#1848cc;"><span style="color:#4a5868">secondary</span></div>
+        <div class="swatch" style="background:#a87028;"><span style="color:#4a5868">warn</span></div>
+        <div class="swatch" style="background:#c02020;"><span style="color:#4a5868">error</span></div>
+        <div class="swatch" style="background:#18b870;"><span style="color:#4a5868">success</span></div>
+        <div class="swatch" style="background:#6038c0;"><span style="color:#4a5868">purple</span></div>
+        <div class="swatch" style="background:#b050c0;"><span style="color:#4a5868">pink</span></div>
+        <div class="swatch" style="background:#80a820;"><span style="color:#4a5868">yellow</span></div>
+      </div>
+      <div class="preview" style="background: #010305;">
+        <span class="comment" style="color:#4a5868;">-- bioluminescence</span><br>
+        <span class="keyword" style="color:#6038c0;">local</span> <span style="color:#1848cc;">deep</span> <span style="color:#a0b8c8;">=</span> <span class="keyword" style="color:#6038c0;">require</span><span style="color:#a0b8c8;">(</span><span style="color:#18b870;">"abyss"</span><span style="color:#a0b8c8;">)</span><br>
+        <span class="keyword" style="color:#6038c0;">local</span> <span style="color:#a0b8c8;">glow =</span> <span style="color:#1848cc;">deep</span><span style="color:#a0b8c8;">.</span><span style="color:#a87028;">phosphor</span><span style="color:#a0b8c8;">(</span><span style="color:#80a820;">42</span><span style="color:#a0b8c8;">)</span><br>
+        <span class="keyword" style="color:#6038c0;">if</span> <span style="color:#a0b8c8;">glow.</span><span style="color:#c02020;">fading</span> <span class="keyword" style="color:#6038c0;">then</span><br>
+        <span style="color:#a0b8c8;">  </span><span style="color:#00e0ff;">print</span><span style="color:#a0b8c8;">(</span><span style="color:#18b870;">"midnight zone"</span><span style="color:#a0b8c8;">)</span><br>
+        <span class="keyword" style="color:#6038c0;">end</span><span class="cursor" style="background:#00e0ff;"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- DESERT ISLAND — warm amber/earth, no cool blues -->
+  <div class="theme" style="background: #1a1610;">
+    <div class="theme-header" style="color: #d88840;">
+      ░▒▓ Desert Island ▓▒░
+    </div>
+    <div class="theme-body">
+      <div class="section-label" style="color: #908070;">base</div>
+      <div class="swatches">
+        <div class="swatch" style="background:#1a1610; border: 1px solid #3a3225;"><span style="color:#908070">bg</span></div>
+        <div class="swatch" style="background:#12100c;"><span style="color:#908070">dim</span></div>
+        <div class="swatch" style="background:#2a2418;"><span style="color:#908070">accent</span></div>
+        <div class="swatch" style="background:#3a3225;"><span style="color:#908070">sel</span></div>
+        <div class="swatch" style="background:#d8cfc0;"><span style="color:#908070">fg</span></div>
+        <div class="swatch" style="background:#908070;"><span style="color:#908070">dim</span></div>
+        <div class="swatch" style="background:#f0e8d8;"><span style="color:#908070">bright</span></div>
+      </div>
+      <div class="section-label" style="color: #908070;">accents</div>
+      <div class="swatches">
+        <div class="swatch" style="background:#d88840;"><span style="color:#908070">primary</span></div>
+        <div class="swatch" style="background:#7a9050;"><span style="color:#908070">secondary</span></div>
+        <div class="swatch" style="background:#d06020;"><span style="color:#908070">warn</span></div>
+        <div class="swatch" style="background:#c83838;"><span style="color:#908070">error</span></div>
+        <div class="swatch" style="background:#6a9848;"><span style="color:#908070">success</span></div>
+        <div class="swatch" style="background:#907088;"><span style="color:#908070">purple</span></div>
+        <div class="swatch" style="background:#c07868;"><span style="color:#908070">pink</span></div>
+        <div class="swatch" style="background:#c0a030;"><span style="color:#908070">yellow</span></div>
+      </div>
+      <div class="preview" style="background: #12100c;">
+        <span class="comment" style="color:#908070;">-- driftwood</span><br>
+        <span class="keyword" style="color:#907088;">local</span> <span style="color:#7a9050;">island</span> <span style="color:#d8cfc0;">=</span> <span class="keyword" style="color:#907088;">require</span><span style="color:#d8cfc0;">(</span><span style="color:#6a9848;">"tropics"</span><span style="color:#d8cfc0;">)</span><br>
+        <span class="keyword" style="color:#907088;">local</span> <span style="color:#d8cfc0;">sun =</span> <span style="color:#7a9050;">island</span><span style="color:#d8cfc0;">.</span><span style="color:#d06020;">heat</span><span style="color:#d8cfc0;">(</span><span style="color:#c0a030;">42</span><span style="color:#d8cfc0;">)</span><br>
+        <span class="keyword" style="color:#907088;">if</span> <span style="color:#d8cfc0;">sun.</span><span style="color:#c83838;">setting</span> <span class="keyword" style="color:#907088;">then</span><br>
+        <span style="color:#d8cfc0;">  </span><span style="color:#d88840;">print</span><span style="color:#d8cfc0;">(</span><span style="color:#6a9848;">"golden hour"</span><span style="color:#d8cfc0;">)</span><br>
+        <span class="keyword" style="color:#907088;">end</span><span class="cursor" style="background:#d88840;"></span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
