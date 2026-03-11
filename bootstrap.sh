@@ -38,7 +38,9 @@ brew install \
   lazygit \
   jj \
   lazyjj \
-  dmmulroy/tap/jj-starship
+  dmmulroy/tap/jj-starship \
+  1password-cli \
+  neovim
 
 # --- jj-fzf (git clone if not in brew) ---
 if ! command -v jj-fzf &>/dev/null && [ ! -d "$HOME/.jj-fzf" ]; then
@@ -46,6 +48,11 @@ if ! command -v jj-fzf &>/dev/null && [ ! -d "$HOME/.jj-fzf" ]; then
     brew install jj-fzf 2>/dev/null || \
         git clone https://github.com/tim-janik/jj-fzf.git "$HOME/.jj-fzf"
 fi
+
+# --- AI tools (via bun for auto-updates) ---
+echo "Installing AI tools..."
+bun install -g @anthropic-ai/claude-code 2>/dev/null || true
+bun install -g @openai/codex 2>/dev/null || true
 
 # --- Post-install ---
 echo "Running post-install steps..."
