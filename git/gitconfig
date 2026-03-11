@@ -14,9 +14,22 @@
 [delta]
 	navigate = true
 	dark = true
-	syntax-theme = Catppuccin Mocha
 	side-by-side = true
 	line-numbers = true
+	syntax-theme = base16
+	minus-style = "syntax #241b42"
+	minus-emph-style = "syntax #3d2a6b"
+	plus-style = "syntax #133832"
+	plus-emph-style = "syntax #1d524a"
+	line-numbers-minus-style = "#8b6fc0"
+	line-numbers-plus-style = "#52b8a3"
+	line-numbers-zero-style = "#636378"
+	file-style = "bold #f0b0d0"
+	file-decoration-style = "#f0b0d0 ul"
+	hunk-header-style = "syntax #243545"
+	hunk-header-decoration-style = "#6aaccc box"
+	zero-style = syntax
+	blame-palette = "#0d1117 #162040 #1e2a4a #241b42 #243545"
 [merge]
 	conflictstyle = diff3
 [diff]

@@ -38,7 +38,7 @@ eval "$(direnv hook zsh)"
 # --- fzf ---
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
-# --- fzf config ---
+# --- fzf config (Plastic Beach) ---
 export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
 export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
@@ -46,9 +46,10 @@ export FZF_DEFAULT_OPTS='
   --height 40%
   --layout=reverse
   --border
-  --color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8
-  --color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc
-  --color=marker:#b4befe,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8
+  --color=bg+:#1a3545,bg:#0c1a20,spinner:#40bfb0,hl:#e8854a
+  --color=fg:#d0c8be,header:#4ab0c8,info:#40bfb0,pointer:#e8854a
+  --color=marker:#50b890,fg+:#e8e0d6,prompt:#40bfb0,hl+:#f08050
+  --color=border:#2a4555
 '
 
 # --- History ---
@@ -95,6 +96,15 @@ export BAT_THEME="Catppuccin Mocha"
 
 # --- Secrets (fetched from 1Password — never stored on disk) ---
 export OPENAI_API_KEY=$(op read "op://Personal/openai-dotfile/credential" --account my --no-newline)
+
+# --- Plastic Beach MOTD ---
+if [[ -o interactive ]] && [[ -z "$PLASTIC_BEACH_MOTD_SHOWN" ]]; then
+    export PLASTIC_BEACH_MOTD_SHOWN=1
+    echo ""
+    echo -e "\033[38;2;64;191;176m  🌊 plastic beach\033[0m"
+    echo -e "\033[38;2;138;154;154m  ── dev environment v1.0\033[0m"
+    echo ""
+fi
 
 # --- Machine-specific config (not tracked in dotfiles) ---
 [ -f "$HOME/.zshrc.local" ] && source "$HOME/.zshrc.local"

@@ -1,0 +1,29 @@
+# Plastic Beach — custom terminal theme
+# Derived from plasticbeachllc brand palette
+
+background = #0c1a20
+foreground = #d0c8be
+cursor-color = #40bfb0
+cursor-text = #0c1a20
+selection-background = #1a3545
+selection-foreground = #e8e0d6
+
+# ANSI Normal
+palette = 0=#0c1a20
+palette = 1=#d06060
+palette = 2=#50b890
+palette = 3=#d4a050
+palette = 4=#4ab0c8
+palette = 5=#c07ab0
+palette = 6=#40bfb0
+palette = 7=#d0c8be
+
+# ANSI Bright
+palette = 8=#1a3545
+palette = 9=#e07070
+palette = 10=#60d8a0
+palette = 11=#e4b060
+palette = 12=#5ac0d8
+palette = 13=#d08ac0
+palette = 14=#50dfc8
+palette = 15=#e8e0d6

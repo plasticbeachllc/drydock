@@ -2,8 +2,8 @@
 font-family = "Maple Mono NF"
 font-size = 14
 
-# Theme
-theme = catppuccin-mocha
+# Theme — Plastic Beach custom
+theme = Plastic Beach Basic
 
 # Window
 window-padding-x = 12

@@ -1,22 +1,27 @@
-# Minimal, fast prompt with git + directory awareness
+# Plastic Beach — minimal prompt
 format = """
 $directory\
-$git_branch\
-$git_status\
+${custom.jj}\
 $character"""
 
 [directory]
 truncation_length = 3
 truncate_to_repo = true
+style = "bold #4ab0c8"
 
+# jj-starship: unified jj/git prompt module
+[custom.jj]
+when = "jj-starship detect"
+shell = ["jj-starship"]
+format = "$output "
+
+# Disable built-in git modules (jj-starship handles both)
 [git_branch]
-format = "[$branch]($style) "
-style = "bold purple"
+disabled = true
 
 [git_status]
-format = '([$all_status$ahead_behind]($style) )'
-style = "bold red"
+disabled = true
 
 [character]
-success_symbol = "[❯](bold green)"
-error_symbol = "[❯](bold red)"
+success_symbol = "[❯](#40bfb0)"
+error_symbol = "[❯](#d06060)"

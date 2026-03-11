@@ -16,7 +16,6 @@ fi
 echo "Installing casks..."
 brew install --cask ghostty 2>/dev/null || true
 brew install --cask font-maple-mono-nf 2>/dev/null || true
-brew install --cask gg 2>/dev/null || true
 
 # --- Formulae (CLI tools) ---
 echo "Installing CLI tools..."
@@ -38,7 +37,8 @@ brew install \
   direnv \
   lazygit \
   jj \
-  lazyjj
+  lazyjj \
+  dmmulroy/tap/jj-starship
 
 # --- jj-fzf (git clone if not in brew) ---
 if ! command -v jj-fzf &>/dev/null && [ ! -d "$HOME/.jj-fzf" ]; then
