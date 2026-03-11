@@ -80,7 +80,6 @@ chsh -s $(which zsh)
 | Package | Brew cask name | Verified version | Purpose |
 |---|---|---|---|
 | Ghostty | `ghostty` | 1.3.0 | Terminal emulator (GPU-rendered, native macOS) |
-| GG | `gg` | — | GUI for jj (Tauri-based) |
 | Maple Mono NF | `font-maple-mono-nf` | — | Monospace font with Nerd Font icons built in |
 
 ### CLI Tools (formulae)
@@ -130,7 +129,6 @@ Ensure Homebrew is available (see Section 1), then proceed.
 ```bash
 brew install --cask ghostty
 brew install --cask font-maple-mono-nf
-brew install --cask gg
 ```
 
 ### Linux alternatives
@@ -151,13 +149,6 @@ unzip -o /tmp/maple-mono-nf.zip -d ~/.local/share/fonts
 fc-cache -fv
 rm /tmp/maple-mono-nf.zip
 ```
-
-**GG (without Homebrew):**
-```bash
-cargo install gg-cli --locked
-```
-
----
 
 ## 5. Installation: Homebrew Formulae
 
@@ -209,7 +200,6 @@ For Linux distros without Homebrew, or when a formula isn't available:
 | `jj` | `jj-cli` | `cargo install jj-cli --locked` |
 | `lazyjj` | `lazyjj` | `cargo install lazyjj --locked` |
 | `sheldon` | `sheldon` | `cargo install sheldon --locked` |
-| `gg` | `gg-cli` | `cargo install gg-cli --locked` |
 
 **Starship** has a universal installer (no cargo needed):
 ```bash
@@ -617,7 +607,6 @@ This creates a `.jj` directory alongside `.git`. Both tools work on the same rep
 | jj CLI | `jj` | Core VCS operations |
 | lazyjj | `lazyjj` or `lj` (alias) | TUI for jj (log, files, bookmarks) |
 | jj-fzf | `jj-fzf` | fzf-based interactive jj interface |
-| gg | Open `GG.app` or run `gg` | GUI for jj (graph manipulation) |
 
 ---
 
@@ -670,14 +659,6 @@ if [ -x "$HOME/.jj-fzf/jj-fzf" ] || command -v jj-fzf &>/dev/null; then
   echo "  jj-fzf    ✓"
 else
   echo "  jj-fzf    ✗ NOT FOUND"
-fi
-echo ""
-
-echo "--- GG (GUI) ---"
-if [ -d "/Applications/GG.app" ] || command -v gg &>/dev/null; then
-  echo "  gg        ✓"
-else
-  echo "  gg        ✗ NOT FOUND"
 fi
 echo ""
 
@@ -753,7 +734,6 @@ tap "homebrew/cask-fonts"
 # Casks (GUI apps)
 cask "ghostty"
 cask "font-maple-mono-nf"
-cask "gg"
 
 # Formulae (CLI tools)
 brew "starship"

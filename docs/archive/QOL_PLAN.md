@@ -102,18 +102,14 @@ brew install lazyjj
 
 # jj-fzf (fzf-based jj interface)
 brew install jj-fzf
-
-# gg (GUI for jj, built with Tauri)
-brew install --cask gg
 ```
 
-> **Note:** If `lazyjj`, `jj-fzf`, or `gg` aren't in Homebrew yet, fall back to cargo:
+> **Note:** If `lazyjj` or `jj-fzf` aren't in Homebrew yet, fall back to cargo:
 > ```bash
 > # Make sure Rust is installed
 > curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 >
 > cargo install lazyjj --locked
-> cargo install gg-cli --locked
 >
 > # jj-fzf is a shell script — clone and add to PATH
 > git clone https://github.com/tim-janik/jj-fzf.git ~/.jj-fzf
