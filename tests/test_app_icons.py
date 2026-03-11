@@ -9,10 +9,14 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SETUP_PATH = REPO_ROOT / "setup.py"
 
 
+import sys
+
+
 def load_setup_module():
     spec = importlib.util.spec_from_file_location("dotfiles_setup", SETUP_PATH)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
+    sys.modules["dotfiles_setup"] = module
     spec.loader.exec_module(module)
     return module
 

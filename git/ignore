@@ -37,3 +37,6 @@ build/
 *.o
 *.so
 *.dylib
+
+# === jj workspaces ===
+.worktrees/

@@ -1,4 +1,4 @@
-# Plastic Beach — minimal prompt
+# Minimal prompt — themed by setup.py
 format = """
 $directory\
 ${custom.jj}\
