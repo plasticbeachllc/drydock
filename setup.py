@@ -72,7 +72,7 @@ CLAUDE_SETTINGS = {
     "statusLine": {
         "type": "command",
         "command": str(Path.home() / ".claude" / "statusline.sh"),
-        "padding": 2,
+        "padding": 1,
     },
 }
 
