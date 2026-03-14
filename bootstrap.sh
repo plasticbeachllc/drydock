@@ -64,7 +64,7 @@ banner "Homebrew"
 
 if ! command -v brew &>/dev/null; then
     echo "Installing Homebrew..."
-    retry 3 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    retry 3 bash -c 'bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
     # Activate brew in this session
     if is_macos; then
         eval "$(/opt/homebrew/bin/brew shellenv)"

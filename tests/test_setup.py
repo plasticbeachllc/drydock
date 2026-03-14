@@ -215,13 +215,14 @@ class SetDefaultBrowserPlatformTests(unittest.TestCase):
     def setUp(self):
         self.module = load_setup_module()
 
-    @mock.patch("dotfiles_setup.shutil.which", return_value="/usr/bin/google-chrome")
-    @mock.patch("dotfiles_setup.subprocess.run")
-    def test_linux_uses_xdg_settings(self, mock_run, mock_which):
-        mock_run.return_value = mock.MagicMock(returncode=0)
+    def test_linux_uses_xdg_settings(self):
+        mock_which = mock.MagicMock(return_value="/usr/bin/google-chrome")
+        mock_run = mock.MagicMock(return_value=mock.MagicMock(returncode=0))
         with (
             mock.patch.object(self.module, "IS_MACOS", False),
             mock.patch.object(self.module, "IS_LINUX", True),
+            mock.patch.object(self.module.shutil, "which", mock_which),
+            mock.patch.object(self.module.subprocess, "run", mock_run),
         ):
             self.module.set_default_browser()
         # Should have called xdg-settings
@@ -326,7 +327,6 @@ class NonInteractiveTests(unittest.TestCase):
 class SshConfigTemplateTests(unittest.TestCase):
     def setUp(self):
         self.module = load_setup_module()
-        self.root = Path(self.temp_dir.name) if hasattr(self, 'temp_dir') else None
 
     def test_ssh_config_has_placeholder(self):
         ssh_config = REPO_ROOT / "ssh" / "config"
