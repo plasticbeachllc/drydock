@@ -126,6 +126,8 @@ class TestConfigureAppIcons(unittest.TestCase):
         assert mock_run.call_count == 3
         set_call = mock_run.call_args_list[1][0][0]
         assert "set" in set_call
+        dock_call = mock_run.call_args_list[2][0][0]
+        assert dock_call == ["killall", "Dock"]
 
     @_force_macos
     @patch("dotfiles_setup.shutil.which", return_value="/opt/homebrew/bin/fileicon")
