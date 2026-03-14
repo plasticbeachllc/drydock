@@ -80,6 +80,17 @@ printf 'fzf-install %s\\n' "$*" >> "{self.log_file}"
 exit 0
 """,
         )
+        # uname stub that returns Linux (since we're testing on Linux)
+        self._write_executable(
+            self.bin_dir / "uname",
+            f"""#!/usr/bin/env bash
+if [ "${{1:-}}" = "-s" ]; then
+  echo "Linux"
+else
+  /usr/bin/uname "$@"
+fi
+""",
+        )
 
     def _write_executable(self, path: Path, content: str) -> None:
         path.write_text(textwrap.dedent(content))
@@ -102,8 +113,7 @@ exit 0
         self.assertEqual(result.returncode, 0, msg=result.stderr)
 
         commands = self.log_file.read_text()
-        self.assertIn("brew install --cask ghostty", commands)
-        self.assertIn("brew install --cask font-maple-mono-nf", commands)
+        # CLI tools are installed (no casks on Linux)
         self.assertIn("brew install starship", commands)
         self.assertIn("gh", commands)
         self.assertIn("jq", commands)
@@ -116,6 +126,79 @@ exit 0
         )
         self.assertIn(f"uv run {REPO_ROOT / 'setup.py'}", commands)
         self.assertNotIn("git clone", commands)
+
+    def test_bootstrap_skips_casks_on_linux(self):
+        """On Linux, GUI casks should not be installed."""
+        env = os.environ.copy()
+        env["HOME"] = str(self.home_dir)
+        env["PATH"] = f"{self.bin_dir}:/usr/bin:/bin"
+
+        result = subprocess.run(
+            ["bash", str(BOOTSTRAP_PATH)],
+            cwd=REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+
+        commands = self.log_file.read_text()
+        self.assertNotIn("--cask ghostty", commands)
+        self.assertNotIn("--cask font-maple-mono-nf", commands)
+        self.assertNotIn("--cask google-chrome", commands)
+        self.assertNotIn("--cask 1password", commands)
+
+    def test_bootstrap_shows_section_banners(self):
+        """Output should include section banners for clarity."""
+        env = os.environ.copy()
+        env["HOME"] = str(self.home_dir)
+        env["PATH"] = f"{self.bin_dir}:/usr/bin:/bin"
+
+        result = subprocess.run(
+            ["bash", str(BOOTSTRAP_PATH)],
+            cwd=REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertIn("==> Homebrew", result.stdout)
+        self.assertIn("==> CLI tools", result.stdout)
+        self.assertIn("==> Rust toolchain", result.stdout)
+        self.assertIn("==> Running setup.py", result.stdout)
+
+    def test_bootstrap_skips_fileicon_on_linux(self):
+        """fileicon is macOS-only, should not appear in Linux installs."""
+        env = os.environ.copy()
+        env["HOME"] = str(self.home_dir)
+        env["PATH"] = f"{self.bin_dir}:/usr/bin:/bin"
+
+        result = subprocess.run(
+            ["bash", str(BOOTSTRAP_PATH)],
+            cwd=REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        commands = self.log_file.read_text()
+        # fileicon is in MACOS_TOOLS, not COMMON_TOOLS
+        # On Linux, the MACOS_TOOLS array should not be installed
+        self.assertNotIn("fileicon", commands)
+
+    def test_bootstrap_syntax_valid(self):
+        """bootstrap.sh should pass bash -n syntax check."""
+        result = subprocess.run(
+            ["bash", "-n", str(BOOTSTRAP_PATH)],
+            capture_output=True,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stderr.decode())
 
 
 if __name__ == "__main__":

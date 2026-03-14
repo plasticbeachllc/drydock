@@ -3,7 +3,9 @@
 # ///
 """Dotfiles provisioning script — renders templates, creates symlinks, provisions secrets."""
 
+import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -14,6 +16,10 @@ REPO_ROOT = Path(__file__).resolve().parent
 RENDERED_DIR = Path.home() / ".config" / "dotfiles" / "rendered"
 IDENTITY_FILE = Path.home() / ".config" / "dotfiles" / "identity.json"
 GENERATED_DIR = Path.home() / ".config" / "dotfiles"
+
+# Platform detection
+IS_MACOS = sys.platform == "darwin"
+IS_LINUX = sys.platform.startswith("linux")
 
 # Placeholders that setup.py will substitute with real values
 PLACEHOLDERS = ["__NAME__", "__EMAIL__"]
@@ -29,15 +35,18 @@ ZSHRC_LOCAL = Path.home() / ".zshrc.local"
 # 1Password team account — sign-in address (not secret, just a subdomain)
 OP_TEAM_ADDRESS = "plasticbeach.1password.com"
 
-# 1Password SSH agent socket path (macOS)
-OP_SSH_AGENT_SOCK = (
-    Path.home()
-    / "Library"
-    / "Group Containers"
-    / "2BUA8C4S2C.com.1password"
-    / "t"
-    / "agent.sock"
-)
+# 1Password SSH agent socket path (platform-dependent)
+if IS_MACOS:
+    OP_SSH_AGENT_SOCK = (
+        Path.home()
+        / "Library"
+        / "Group Containers"
+        / "2BUA8C4S2C.com.1password"
+        / "t"
+        / "agent.sock"
+    )
+else:
+    OP_SSH_AGENT_SOCK = Path.home() / ".1password" / "agent.sock"
 
 # Symlink mapping: repo template path -> target symlink location
 # (ghostty theme entry is added dynamically based on selected theme)
@@ -57,8 +66,7 @@ SYMLINK_MAP = {
     "ssh/config":           Path.home() / ".ssh" / "config",
 }
 
-# App icon overrides: {app_path: icon_source_path}
-# Uses `fileicon` to set custom icons via extended attributes.
+# App icon overrides: {app_path: icon_source_path} — macOS only
 APP_ICON_MAP = {
     "/Applications/Ghostty.app": (
         "/System/Applications/Utilities/Terminal.app"
@@ -77,6 +85,19 @@ CLAUDE_SETTINGS = {
 }
 
 
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(description="Dotfiles provisioner")
+    parser.add_argument(
+        "--non-interactive",
+        action="store_true",
+        default=bool(os.environ.get("CI")),
+        help="Run without prompts (reads from env vars / identity.json). "
+             "Also enabled by CI=1 env var.",
+    )
+    return parser.parse_args(argv)
+
+
 def load_identity() -> dict[str, str]:
     """Load saved identity or return empty dict."""
     if IDENTITY_FILE.exists():
@@ -90,9 +111,25 @@ def save_identity(identity: dict[str, str]) -> None:
     IDENTITY_FILE.write_text(json.dumps(identity, indent=2) + "\n")
 
 
-def prompt_identity() -> dict[str, str]:
-    """Prompt for identity values, using saved values as defaults."""
+def prompt_identity(non_interactive: bool = False) -> dict[str, str]:
+    """Prompt for identity values, using saved values as defaults.
+
+    In non-interactive mode, reads from DOTFILES_NAME / DOTFILES_EMAIL env vars
+    or falls back to a previously saved identity.json.
+    """
     identity = load_identity()
+
+    if non_interactive:
+        env_map = {"__NAME__": "DOTFILES_NAME", "__EMAIL__": "DOTFILES_EMAIL"}
+        for key in PLACEHOLDERS:
+            env_val = os.environ.get(env_map[key], "")
+            if env_val:
+                identity[key] = env_val
+            elif key not in identity:
+                print(f"Error: {env_map[key]} env var is required in non-interactive mode.")
+                sys.exit(1)
+        save_identity(identity)
+        return identity
 
     for key in PLACEHOLDERS:
         label = key.strip("_").lower()
@@ -115,8 +152,11 @@ def prompt_identity() -> dict[str, str]:
     return identity
 
 
-def prompt_theme() -> tuple[str, dict]:
-    """Prompt for theme selection, returns (theme_key, theme_dict)."""
+def prompt_theme(non_interactive: bool = False) -> tuple[str, dict]:
+    """Prompt for theme selection, returns (theme_key, theme_dict).
+
+    In non-interactive mode, uses the previously saved theme or defaults to the first.
+    """
     # Import here so the module isn't required at top level
     sys.path.insert(0, str(REPO_ROOT / "themes"))
     from generate import load_themes
@@ -133,23 +173,26 @@ def prompt_theme() -> tuple[str, dict]:
             default_idx = i
             break
 
-    for i, key in enumerate(theme_keys):
-        t = themes[key]
-        marker = "*" if key == prev else " "
-        print(f"  {marker}[{i + 1}] {t['name']} — {t['tagline']}")
-
-    prompt = f"  choice [{default_idx + 1}]: "
-    choice = input(prompt).strip()
-    if not choice:
+    if non_interactive:
         idx = default_idx
     else:
-        try:
-            idx = int(choice) - 1
-            if not 0 <= idx < len(theme_keys):
-                raise ValueError
-        except ValueError:
-            print("Invalid choice.")
-            sys.exit(1)
+        for i, key in enumerate(theme_keys):
+            t = themes[key]
+            marker = "*" if key == prev else " "
+            print(f"  {marker}[{i + 1}] {t['name']} — {t['tagline']}")
+
+        prompt = f"  choice [{default_idx + 1}]: "
+        choice = input(prompt).strip()
+        if not choice:
+            idx = default_idx
+        else:
+            try:
+                idx = int(choice) - 1
+                if not 0 <= idx < len(theme_keys):
+                    raise ValueError
+            except ValueError:
+                print("Invalid choice.")
+                sys.exit(1)
 
     selected_key = theme_keys[idx]
     selected = themes[selected_key]
@@ -214,7 +257,10 @@ def generate_theme_files(theme_key: str, theme: dict) -> dict[str, str]:
     btop_conf = Path.home() / ".config" / "btop" / "btop.conf"
     _set_btop_color_theme(btop_conf, theme["name"])
 
-    return theme_placeholders(theme)
+    # Platform-specific placeholders (SSH agent socket path)
+    placeholders = theme_placeholders(theme)
+    placeholders["__OP_SSH_AGENT_SOCK__"] = str(OP_SSH_AGENT_SOCK)
+    return placeholders
 
 
 def _set_btop_color_theme(conf_path: Path, theme_name: str) -> None:
@@ -341,23 +387,44 @@ def check_op_ssh_agent() -> None:
         print("  1Password SSH agent: active")
     else:
         print("  1Password SSH agent: not found")
-        print("    -> Open 1Password > Settings > Developer > enable 'Use the SSH agent'")
+        if IS_MACOS:
+            print("    -> Open 1Password > Settings > Developer > enable 'Use the SSH agent'")
+        else:
+            print("    -> Ensure 1Password is configured with SSH agent at ~/.1password/agent.sock")
 
 
 def set_default_browser() -> None:
-    """Set Chrome as default browser (macOS shows a confirmation dialog)."""
-    chrome = Path("/Applications/Google Chrome.app")
-    if not chrome.exists():
-        print("  skipped (Chrome not installed)")
-        return
-    result = subprocess.run(
-        ["open", "-a", "Google Chrome", "--args", "--make-default-browser"],
-        capture_output=True,
-    )
-    if result.returncode == 0:
-        print("  Chrome set as default browser (confirm in the dialog if prompted)")
+    """Set Chrome as default browser (platform-dependent)."""
+    if IS_MACOS:
+        chrome = Path("/Applications/Google Chrome.app")
+        if not chrome.exists():
+            print("  skipped (Chrome not installed)")
+            return
+        result = subprocess.run(
+            ["open", "-a", "Google Chrome", "--args", "--make-default-browser"],
+            capture_output=True,
+        )
+        if result.returncode == 0:
+            print("  Chrome set as default browser (confirm in the dialog if prompted)")
+        else:
+            print("  failed to set default browser")
+    elif IS_LINUX:
+        if not shutil.which("google-chrome") and not shutil.which("google-chrome-stable"):
+            print("  skipped (Chrome not installed)")
+            return
+        if not shutil.which("xdg-settings"):
+            print("  skipped (xdg-settings not available)")
+            return
+        result = subprocess.run(
+            ["xdg-settings", "set", "default-web-browser", "google-chrome.desktop"],
+            capture_output=True,
+        )
+        if result.returncode == 0:
+            print("  Chrome set as default browser")
+        else:
+            print("  failed to set default browser")
     else:
-        print("  failed to set default browser")
+        print(f"  skipped (unsupported platform: {sys.platform})")
 
 
 def _ensure_zshrc_local_permissions() -> None:
@@ -486,7 +553,11 @@ def configure_claude_code() -> None:
 
 
 def configure_app_icons() -> None:
-    """Set custom app icons declaratively using fileicon."""
+    """Set custom app icons declaratively using fileicon (macOS only)."""
+    if not IS_MACOS:
+        print("  skipped (macOS only)")
+        return
+
     if not shutil.which("fileicon"):
         print("  skipped (fileicon not installed — run bootstrap.sh first)")
         return
@@ -528,26 +599,40 @@ def configure_app_icons() -> None:
         subprocess.run(["killall", "Dock"], capture_output=True)
 
 
-def main() -> None:
+def open_url(path: str) -> None:
+    """Open a file or URL using the platform-appropriate command."""
+    if IS_MACOS:
+        subprocess.run(["open", path])
+    elif IS_LINUX:
+        subprocess.run(["xdg-open", path], stderr=subprocess.DEVNULL)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
+    non_interactive = args.non_interactive
+
     print("Dotfiles provisioning\n")
+    if non_interactive:
+        print("  (non-interactive mode)\n")
 
     # Step 1: Identity
     print("Identity (stored in ~/.config/dotfiles/identity.json):")
-    identity = prompt_identity()
+    identity = prompt_identity(non_interactive=non_interactive)
     print()
 
     # Step 2: Theme
     print("Theme:\n")
-    gallery_script = REPO_ROOT / "themes" / "build_gallery.py"
-    gallery_html = REPO_ROOT / "themes" / "gallery.html"
-    if gallery_script.exists():
-        subprocess.run([sys.executable, str(gallery_script)], capture_output=True)
-        if gallery_html.exists():
-            choice = input("  press p to preview theme gallery in browser, or Enter to skip: ").strip().lower()
-            if choice == "p":
-                subprocess.run(["open", str(gallery_html)])
-            print()
-    theme_key, theme = prompt_theme()
+    if not non_interactive:
+        gallery_script = REPO_ROOT / "themes" / "build_gallery.py"
+        gallery_html = REPO_ROOT / "themes" / "gallery.html"
+        if gallery_script.exists():
+            subprocess.run([sys.executable, str(gallery_script)], capture_output=True)
+            if gallery_html.exists():
+                choice = input("  press p to preview theme gallery in browser, or Enter to skip: ").strip().lower()
+                if choice == "p":
+                    open_url(str(gallery_html))
+                print()
+    theme_key, theme = prompt_theme(non_interactive=non_interactive)
     print(f"\n  Selected: {theme['name']}\n")
     print("Generating theme configs:\n")
     theme_subs = generate_theme_files(theme_key, theme)
@@ -595,7 +680,7 @@ def main() -> None:
     configure_claude_code()
     print()
 
-    # Step 5: App Icons
+    # Step 5: App Icons (macOS only)
     print("App Icons:\n")
     configure_app_icons()
     print()
@@ -606,7 +691,11 @@ def main() -> None:
     print()
 
     # Step 7: 1Password & Secrets
-    provision_secrets(identity)
+    if non_interactive:
+        print("1Password:\n")
+        print("  skipped (non-interactive mode)\n")
+    else:
+        provision_secrets(identity)
 
     print("Done.")
 

@@ -26,9 +26,25 @@ configure_app_icons = setup.configure_app_icons
 APP_ICON_MAP = setup.APP_ICON_MAP
 
 
+def _force_macos(func):
+    """Decorator to patch IS_MACOS=True so icon tests run on any platform."""
+    return patch.object(setup, "IS_MACOS", True)(func)
+
+
 class TestConfigureAppIcons(unittest.TestCase):
     """Tests for the configure_app_icons function."""
 
+    def test_skips_on_non_macos(self):
+        """Should skip entirely on Linux."""
+        with (
+            patch.object(setup, "IS_MACOS", False),
+            patch("builtins.print") as mock_print,
+        ):
+            configure_app_icons()
+        mock_print.assert_called_once()
+        assert "macOS only" in mock_print.call_args[0][0]
+
+    @_force_macos
     @patch("dotfiles_setup.shutil.which", return_value=None)
     def test_skips_when_fileicon_not_installed(self, mock_which):
         """Should skip gracefully if fileicon binary is missing."""
@@ -37,6 +53,7 @@ class TestConfigureAppIcons(unittest.TestCase):
         mock_print.assert_called_once()
         assert "fileicon not installed" in mock_print.call_args[0][0]
 
+    @_force_macos
     @patch("dotfiles_setup.shutil.which", return_value="/opt/homebrew/bin/fileicon")
     def test_skips_when_app_not_installed(self, mock_which):
         """Should skip if the target app doesn't exist."""
@@ -48,6 +65,7 @@ class TestConfigureAppIcons(unittest.TestCase):
         output = " ".join(call[0][0] for call in mock_print.call_args_list)
         assert "not installed" in output
 
+    @_force_macos
     @patch("dotfiles_setup.shutil.which", return_value="/opt/homebrew/bin/fileicon")
     @patch("dotfiles_setup.subprocess.run")
     def test_skips_when_icon_source_missing(self, mock_run, mock_which):
@@ -71,6 +89,7 @@ class TestConfigureAppIcons(unittest.TestCase):
         assert "icon source missing" in output
         mock_run.assert_not_called()
 
+    @_force_macos
     @patch("dotfiles_setup.shutil.which", return_value="/opt/homebrew/bin/fileicon")
     @patch("dotfiles_setup.subprocess.run")
     def test_skips_when_icon_already_set(self, mock_run, mock_which):
@@ -88,6 +107,7 @@ class TestConfigureAppIcons(unittest.TestCase):
         output = " ".join(call[0][0] for call in mock_print.call_args_list)
         assert "already set" in output
 
+    @_force_macos
     @patch("dotfiles_setup.shutil.which", return_value="/opt/homebrew/bin/fileicon")
     @patch("dotfiles_setup.subprocess.run")
     def test_sets_icon_when_not_present(self, mock_run, mock_which):
@@ -95,16 +115,19 @@ class TestConfigureAppIcons(unittest.TestCase):
         mock_run.side_effect = [
             MagicMock(returncode=1),  # fileicon test -> no icon
             MagicMock(returncode=0),  # fileicon set -> success
+            MagicMock(returncode=0),  # killall Dock
         ]
         with (
             patch.object(Path, "exists", return_value=True),
             patch("builtins.print") as mock_print,
         ):
             configure_app_icons()
-        assert mock_run.call_count == 2
+        # fileicon test + fileicon set + killall Dock = 3 calls
+        assert mock_run.call_count == 3
         set_call = mock_run.call_args_list[1][0][0]
         assert "set" in set_call
 
+    @_force_macos
     @patch("dotfiles_setup.shutil.which", return_value="/opt/homebrew/bin/fileicon")
     @patch("dotfiles_setup.subprocess.run")
     def test_reports_failure(self, mock_run, mock_which):

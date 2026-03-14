@@ -3,66 +3,151 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# --- Homebrew ---
+# ── OS detection ────────────────────────────────────────────
+OS="$(uname -s)"
+is_macos() { [[ "$OS" == "Darwin" ]]; }
+is_linux() { [[ "$OS" == "Linux" ]]; }
+
+# ── Helpers ─────────────────────────────────────────────────
+
+FAILED_STEPS=()
+
+# Retry a command with exponential backoff (for network operations).
+# Usage: retry <max_attempts> <command...>
+retry() {
+    local max="$1"; shift
+    local attempt=1
+    local delay=2
+    while true; do
+        if "$@"; then
+            return 0
+        fi
+        if (( attempt >= max )); then
+            echo "  ✗ failed after $max attempts: $*"
+            return 1
+        fi
+        echo "  retrying in ${delay}s (attempt $((attempt+1))/$max)..."
+        sleep "$delay"
+        (( attempt++ ))
+        (( delay *= 2 ))
+    done
+}
+
+banner() {
+    echo ""
+    echo "==> $1"
+    echo ""
+}
+
+# Trap: print summary on exit
+finish() {
+    local exit_code=$?
+    echo ""
+    if (( ${#FAILED_STEPS[@]} > 0 )); then
+        echo "Warning: the following steps had failures:"
+        for step in "${FAILED_STEPS[@]}"; do
+            echo "  - $step"
+        done
+        echo ""
+        echo "Re-run bootstrap.sh to retry failed steps."
+    fi
+    if (( exit_code == 0 )); then
+        echo "Bootstrap complete."
+    else
+        echo "Bootstrap exited with errors (code $exit_code)."
+    fi
+}
+trap finish EXIT
+
+# ── Homebrew ────────────────────────────────────────────────
+banner "Homebrew"
+
 if ! command -v brew &>/dev/null; then
     echo "Installing Homebrew..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    eval "$(/opt/homebrew/bin/brew shellenv)"
+    retry 3 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    # Activate brew in this session
+    if is_macos; then
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+    elif [ -d /home/linuxbrew/.linuxbrew ]; then
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    fi
 else
     echo "Homebrew already installed."
 fi
 
-# --- Casks (GUI apps) ---
-echo "Installing casks..."
-brew install --cask ghostty 2>/dev/null || true
-brew install --cask font-maple-mono-nf 2>/dev/null || true
-brew install --cask google-chrome 2>/dev/null || true
-brew install --cask 1password 2>/dev/null || true
-brew install --cask telegram 2>/dev/null || true
+# ── Casks (GUI apps — macOS only) ──────────────────────────
+if is_macos; then
+    banner "Casks (GUI apps)"
+    brew install --cask ghostty 2>/dev/null || true
+    brew install --cask font-maple-mono-nf 2>/dev/null || true
+    brew install --cask google-chrome 2>/dev/null || true
+    brew install --cask 1password 2>/dev/null || true
+    brew install --cask telegram 2>/dev/null || true
+fi
 
-# --- Formulae (CLI tools) ---
-echo "Installing CLI tools..."
-brew install \
-  starship \
-  sheldon \
-  eza \
-  bat \
-  ripgrep \
-  fd \
-  zoxide \
-  fzf \
-  git-delta \
-  dust \
-  btop \
-  xh \
-  sd \
-  tealdeer \
-  direnv \
-  lazygit \
-  gh \
-  jq \
-  jj \
-  lazyjj \
-  dmmulroy/tap/jj-starship \
-  1password-cli \
-  fileicon \
-  rustup-init \
-  neovim
+# ── CLI tools ───────────────────────────────────────────────
+banner "CLI tools"
 
-# --- jj-fzf (git clone if not in brew) ---
+# Common tools available via Homebrew on both macOS and Linux
+COMMON_TOOLS=(
+    starship
+    sheldon
+    eza
+    bat
+    ripgrep
+    fd
+    zoxide
+    fzf
+    git-delta
+    dust
+    btop
+    xh
+    sd
+    tealdeer
+    direnv
+    lazygit
+    gh
+    jq
+    jj
+    lazyjj
+    1password-cli
+    rustup-init
+    neovim
+)
+
+# macOS-only brew formulae
+MACOS_TOOLS=(
+    fileicon
+    dmmulroy/tap/jj-starship
+)
+
+brew install "${COMMON_TOOLS[@]}" || FAILED_STEPS+=("CLI tools (some formulae)")
+
+if is_macos; then
+    brew install "${MACOS_TOOLS[@]}" || FAILED_STEPS+=("macOS-only CLI tools")
+fi
+
+# On Linux, install jj-starship via brew if available
+if is_linux; then
+    brew install dmmulroy/tap/jj-starship 2>/dev/null || true
+fi
+
+# ── jj-fzf ──────────────────────────────────────────────────
 if ! command -v jj-fzf &>/dev/null && [ ! -d "$HOME/.jj-fzf" ]; then
-    echo "Installing jj-fzf..."
+    banner "jj-fzf"
     brew install jj-fzf 2>/dev/null || \
-        git clone https://github.com/tim-janik/jj-fzf.git "$HOME/.jj-fzf"
+        retry 3 git clone https://github.com/tim-janik/jj-fzf.git "$HOME/.jj-fzf"
 fi
 
-# --- bun (needed for AI tool installs) ---
+# ── bun ─────────────────────────────────────────────────────
 if ! command -v bun &>/dev/null; then
-    echo "Installing bun..."
-    brew install oven-sh/bun/bun
+    banner "bun"
+    brew install oven-sh/bun/bun || FAILED_STEPS+=("bun")
 fi
 
-# --- Rust toolchain ---
+# ── Rust toolchain ──────────────────────────────────────────
+banner "Rust toolchain"
+
 if [ ! -f "$HOME/.cargo/env" ]; then
     echo "Initializing Rust toolchain..."
     rustup-init -y --no-modify-path
@@ -70,13 +155,13 @@ else
     echo "Rust toolchain already initialized."
 fi
 
-# --- AI tools (via bun for auto-updates) ---
-echo "Installing AI tools..."
+# ── AI tools (via bun) ──────────────────────────────────────
+banner "AI tools"
 bun install -g @anthropic-ai/claude-code 2>/dev/null || true
 bun install -g @openai/codex 2>/dev/null || true
 
-# --- Post-install ---
-echo "Running post-install steps..."
+# ── Post-install ────────────────────────────────────────────
+banner "Post-install"
 
 # fzf shell integration
 if [ -f "$(brew --prefix)/opt/fzf/install" ]; then
@@ -89,16 +174,14 @@ command -v tldr &>/dev/null && tldr --update || true
 # sheldon plugin lock
 command -v sheldon &>/dev/null && sheldon lock || true
 
-# --- uv (for setup.py) ---
+# ── uv (for setup.py) ──────────────────────────────────────
 if ! command -v uv &>/dev/null; then
-    echo "Installing uv..."
-    curl -LsSf https://astral.sh/uv/install.sh | sh
+    banner "uv"
+    retry 3 bash -c 'curl -LsSf https://astral.sh/uv/install.sh | sh' || FAILED_STEPS+=("uv")
 else
     echo "uv already installed."
 fi
 
-# --- Hand off to Python provisioner ---
-echo ""
-echo "Package installation complete. Running setup.py..."
-echo ""
+# ── Hand off to Python provisioner ──────────────────────────
+banner "Running setup.py"
 uv run "$SCRIPT_DIR/setup.py"
