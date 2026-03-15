@@ -254,6 +254,36 @@ class NonInteractiveTests(unittest.TestCase):
         args = self.module.parse_args(["--non-interactive"])
         self.assertTrue(args.non_interactive)
 
+    def test_parse_args_dry_run_flag(self):
+        args = self.module.parse_args(["--dry-run"])
+        self.assertTrue(args.dry_run)
+
+    def test_parse_args_default_no_dry_run(self):
+        args = self.module.parse_args([])
+        self.assertFalse(args.dry_run)
+
+    def test_create_symlink_dry_run_does_not_create(self):
+        source = self.root / "source.txt"
+        source.write_text("content")
+        target = self.root / "target.txt"
+
+        status = self.module.create_symlink(source, target, dry_run=True)
+        self.assertEqual(status, "would link")
+        self.assertFalse(target.exists())
+
+    def test_create_symlink_dry_run_reports_relink(self):
+        source = self.root / "source.txt"
+        source.write_text("content")
+        wrong = self.root / "wrong.txt"
+        wrong.write_text("wrong")
+        target = self.root / "target.txt"
+        target.symlink_to(wrong)
+
+        status = self.module.create_symlink(source, target, dry_run=True)
+        self.assertEqual(status, "would relink (currently pointing elsewhere)")
+        # Symlink should still point to wrong
+        self.assertEqual(target.resolve(), wrong.resolve())
+
     def test_parse_args_default_is_interactive(self):
         with mock.patch.dict(os.environ, {}, clear=True):
             args = self.module.parse_args([])

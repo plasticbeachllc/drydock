@@ -178,6 +178,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Run without prompts (reads from env vars / identity.json). "
              "Also enabled by CI=1 env var.",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be changed without modifying anything.",
+    )
     return parser.parse_args(argv)
 
 
@@ -384,29 +389,33 @@ def needs_templating(src: Path, all_placeholders: list[str]) -> bool:
 SSH_RESTRICTED_DIRS = {Path.home() / ".ssh"}
 
 
-def create_symlink(source: Path, target: Path) -> str:
+def create_symlink(source: Path, target: Path, dry_run: bool = False) -> str:
     """Create a symlink, handling existing files. Returns status string."""
-    target.parent.mkdir(parents=True, exist_ok=True)
-    # SSH requires ~/.ssh/ to be 0700
-    if target.parent in SSH_RESTRICTED_DIRS:
-        target.parent.chmod(0o700)
-
     if target.is_symlink():
         if target.resolve() == source.resolve():
             return "skipped (already linked)"
-        # Wrong symlink — remove and relink
+        if dry_run:
+            return "would relink (currently pointing elsewhere)"
         target.unlink()
         target.symlink_to(source)
         return "relinked (was pointing elsewhere)"
 
     if target.exists():
-        # Back up existing file
+        if dry_run:
+            return "would link (would back up existing file)"
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         backup = target.with_name(f"{target.name}.bak.{timestamp}")
         target.rename(backup)
         target.symlink_to(source)
         return f"linked (backed up original to {backup.name})"
 
+    if dry_run:
+        return "would link"
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    # SSH requires ~/.ssh/ to be 0700
+    if target.parent in SSH_RESTRICTED_DIRS:
+        target.parent.chmod(0o700)
     target.symlink_to(source)
     return "linked"
 
@@ -476,12 +485,15 @@ def check_op_ssh_agent() -> None:
             print("    -> Ensure 1Password is configured with SSH agent at ~/.1password/agent.sock")
 
 
-def set_default_browser() -> None:
+def set_default_browser(dry_run: bool = False) -> None:
     """Set Chrome as default browser (platform-dependent)."""
     if IS_MACOS:
         chrome = Path("/Applications/Google Chrome.app")
         if not chrome.exists():
             print("  skipped (Chrome not installed)")
+            return
+        if dry_run:
+            print("  would set Chrome as default browser")
             return
         result = subprocess.run(
             ["open", "-a", "Google Chrome", "--args", "--make-default-browser"],
@@ -498,6 +510,9 @@ def set_default_browser() -> None:
         if not shutil.which("xdg-settings"):
             print("  skipped (xdg-settings not available)")
             return
+        if dry_run:
+            print("  would set Chrome as default browser")
+            return
         result = subprocess.run(
             ["xdg-settings", "set", "default-web-browser", "google-chrome.desktop"],
             capture_output=True,
@@ -510,7 +525,7 @@ def set_default_browser() -> None:
         print(f"  skipped (unsupported platform: {sys.platform})")
 
 
-def seed_zshrc_local_secrets_template() -> None:
+def seed_zshrc_local_secrets_template(dry_run: bool = False) -> None:
     """Append the 1Password secrets template to ~/.zshrc.local if not already present.
 
     Creates the file if it doesn't exist. Skips if the marker is already present
@@ -528,15 +543,21 @@ def seed_zshrc_local_secrets_template() -> None:
         if _SECRETS_MARKER in content:
             print("  ~/.zshrc.local secrets template already present")
             return
+        if dry_run:
+            print("  would append secrets template to ~/.zshrc.local")
+            return
         with ZSHRC_LOCAL.open("a") as f:
             f.write(template)
     else:
+        if dry_run:
+            print("  would create ~/.zshrc.local with secrets template")
+            return
         ZSHRC_LOCAL.write_text(template.lstrip("\n"))
 
     print("  appended secrets template to ~/.zshrc.local")
 
 
-def provision_secrets(identity: dict[str, str]) -> None:
+def provision_secrets(identity: dict[str, str], dry_run: bool = False) -> None:
     """1Password account staging, authentication, and secrets template seeding.
 
     Ensures the 1Password CLI is configured for the team account and seeds
@@ -546,7 +567,11 @@ def provision_secrets(identity: dict[str, str]) -> None:
     print("1Password:\n")
 
     # Seed the secrets template comment in ~/.zshrc.local
-    seed_zshrc_local_secrets_template()
+    seed_zshrc_local_secrets_template(dry_run=dry_run)
+
+    if dry_run:
+        print()
+        return
 
     has_op = op_available()
 
@@ -590,10 +615,12 @@ def provision_secrets(identity: dict[str, str]) -> None:
     print()
 
 
-def configure_claude_code() -> None:
+def configure_claude_code(dry_run: bool = False) -> None:
     """Merge managed keys into ~/.claude/settings.json without clobbering user state."""
     settings_file = CLAUDE_SETTINGS_DIR / "settings.json"
-    CLAUDE_SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+
+    if not dry_run:
+        CLAUDE_SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
 
     existing = {}
     if settings_file.exists():
@@ -606,17 +633,22 @@ def configure_claude_code() -> None:
     changed = False
     for key, value in CLAUDE_SETTINGS.items():
         if existing.get(key) != value:
-            existing[key] = value
             changed = True
+            if not dry_run:
+                existing[key] = value
 
     if changed:
-        settings_file.write_text(json.dumps(existing, indent=2) + "\n")
-        print("  updated ~/.claude/settings.json")
+        if dry_run:
+            print("  would update ~/.claude/settings.json")
+        else:
+            existing.update(CLAUDE_SETTINGS)
+            settings_file.write_text(json.dumps(existing, indent=2) + "\n")
+            print("  updated ~/.claude/settings.json")
     else:
         print("  ~/.claude/settings.json already up to date")
 
 
-def configure_app_icons() -> None:
+def configure_app_icons(dry_run: bool = False) -> None:
     """Set custom app icons declaratively using fileicon (macOS only)."""
     if not IS_MACOS:
         print("  skipped (macOS only)")
@@ -648,6 +680,10 @@ def configure_app_icons() -> None:
             print(f"  {label:20s} skipped (custom icon already set)")
             continue
 
+        if dry_run:
+            print(f"  {label:20s} would set ({icon.name})")
+            continue
+
         result = subprocess.run(
             ["fileicon", "set", str(app), str(icon)],
             capture_output=True,
@@ -674,8 +710,12 @@ def open_url(path: str) -> None:
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
     non_interactive = args.non_interactive
+    dry_run = args.dry_run
 
-    print("Dotfiles provisioning\n")
+    if dry_run:
+        print("Dotfiles provisioning (dry run)\n")
+    else:
+        print("Dotfiles provisioning\n")
     if non_interactive:
         print("  (non-interactive mode)\n")
 
@@ -707,21 +747,24 @@ def main(argv: list[str] | None = None) -> None:
     all_placeholder_keys = list(all_subs.keys())
 
     # Snapshot existing config before provisioning
-    targets = _collect_provisioning_targets()
-    snap_dir = snapshot_targets(targets)
-    if snap_dir:
-        print(f"Snapshot:\n\n  saved to {snap_dir}\n")
+    snap_dir = None
+    if not dry_run:
+        targets = _collect_provisioning_targets()
+        snap_dir = snapshot_targets(targets)
+        if snap_dir:
+            print(f"Snapshot:\n\n  saved to {snap_dir}\n")
 
     try:
         # Step 3: Symlinks
         print("Symlinks:\n")
-        RENDERED_DIR.mkdir(parents=True, exist_ok=True)
+        if not dry_run:
+            RENDERED_DIR.mkdir(parents=True, exist_ok=True)
 
         for repo_rel, target_or_tuple in SYMLINK_MAP.items():
             # Handle dynamically generated files (stored as tuples)
             if isinstance(target_or_tuple, tuple):
                 source, target = target_or_tuple
-                status = create_symlink(source, target)
+                status = create_symlink(source, target, dry_run=dry_run)
                 print(f"  {status:40s} {target} -> {source}")
                 continue
 
@@ -733,32 +776,33 @@ def main(argv: list[str] | None = None) -> None:
 
             if needs_templating(src, all_placeholder_keys):
                 rendered = RENDERED_DIR / repo_rel
-                rendered.parent.mkdir(parents=True, exist_ok=True)
-                rendered.write_text(render_template(src, all_subs))
-                # Preserve executable bit from source
-                src_mode = src.stat().st_mode
-                rendered.chmod(src_mode & 0o7777)
-                status = create_symlink(rendered, target)
+                if not dry_run:
+                    rendered.parent.mkdir(parents=True, exist_ok=True)
+                    rendered.write_text(render_template(src, all_subs))
+                    # Preserve executable bit from source
+                    src_mode = src.stat().st_mode
+                    rendered.chmod(src_mode & 0o7777)
+                status = create_symlink(rendered, target, dry_run=dry_run)
                 print(f"  {status:40s} {target} -> {rendered}")
             else:
-                status = create_symlink(src, target)
+                status = create_symlink(src, target, dry_run=dry_run)
                 print(f"  {status:40s} {target} -> {src}")
 
         print()
 
         # Step 4: Claude Code
         print("Claude Code:\n")
-        configure_claude_code()
+        configure_claude_code(dry_run=dry_run)
         print()
 
         # Step 5: App Icons (macOS only)
         print("App Icons:\n")
-        configure_app_icons()
+        configure_app_icons(dry_run=dry_run)
         print()
 
         # Step 6: Default Browser
         print("Default Browser:\n")
-        set_default_browser()
+        set_default_browser(dry_run=dry_run)
         print()
 
         # Step 7: 1Password & Secrets
@@ -766,7 +810,7 @@ def main(argv: list[str] | None = None) -> None:
             print("1Password:\n")
             print("  skipped (non-interactive mode)\n")
         else:
-            provision_secrets(identity)
+            provision_secrets(identity, dry_run=dry_run)
 
     except Exception as exc:
         print(f"\nProvisioning failed: {exc}\n")
