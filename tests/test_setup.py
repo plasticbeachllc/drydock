@@ -368,5 +368,103 @@ class ZprofileTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, msg=result.stderr.decode())
 
 
+class SnapshotTests(unittest.TestCase):
+    def setUp(self):
+        self.module = load_setup_module()
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+        self.root = Path(self.temp_dir.name)
+        self.home = self.root / "home"
+        self.home.mkdir()
+
+    def test_snapshot_copies_existing_files(self):
+        target = self.home / ".gitconfig"
+        target.write_text("[user]\nname = Old\n")
+
+        with mock.patch.object(self.module, "SNAPSHOT_DIR", self.root / "snaps"), \
+             mock.patch("pathlib.Path.home", return_value=self.home):
+            snap_dir = self.module.snapshot_targets([target])
+
+        self.assertIsNotNone(snap_dir)
+        snapped = snap_dir / ".gitconfig"
+        self.assertTrue(snapped.exists())
+        self.assertEqual(snapped.read_text(), "[user]\nname = Old\n")
+
+    def test_snapshot_preserves_symlinks(self):
+        real_file = self.home / "real.txt"
+        real_file.write_text("content")
+        target = self.home / ".zshrc"
+        target.symlink_to(real_file)
+
+        with mock.patch.object(self.module, "SNAPSHOT_DIR", self.root / "snaps"), \
+             mock.patch("pathlib.Path.home", return_value=self.home):
+            snap_dir = self.module.snapshot_targets([target])
+
+        snapped = snap_dir / ".zshrc"
+        self.assertTrue(snapped.is_symlink())
+        self.assertEqual(snapped.readlink(), real_file)
+
+    def test_snapshot_returns_none_when_nothing_exists(self):
+        target = self.home / ".nonexistent"
+
+        with mock.patch.object(self.module, "SNAPSHOT_DIR", self.root / "snaps"), \
+             mock.patch("pathlib.Path.home", return_value=self.home):
+            snap_dir = self.module.snapshot_targets([target])
+
+        self.assertIsNone(snap_dir)
+
+    def test_restore_replaces_current_with_snapshot(self):
+        # Set up original state
+        target = self.home / ".gitconfig"
+        target.write_text("[user]\nname = Old\n")
+
+        # Snapshot it
+        with mock.patch.object(self.module, "SNAPSHOT_DIR", self.root / "snaps"), \
+             mock.patch("pathlib.Path.home", return_value=self.home):
+            snap_dir = self.module.snapshot_targets([target])
+
+        # Simulate provisioning changing the file
+        target.write_text("[user]\nname = New\n")
+
+        # Restore
+        with mock.patch("pathlib.Path.home", return_value=self.home):
+            self.module.restore_snapshot(snap_dir)
+
+        self.assertEqual(target.read_text(), "[user]\nname = Old\n")
+
+    def test_restore_restores_symlinks(self):
+        real_file = self.home / "real.txt"
+        real_file.write_text("content")
+        target = self.home / ".zshrc"
+        target.symlink_to(real_file)
+
+        with mock.patch.object(self.module, "SNAPSHOT_DIR", self.root / "snaps"), \
+             mock.patch("pathlib.Path.home", return_value=self.home):
+            snap_dir = self.module.snapshot_targets([target])
+
+        # Simulate provisioning replacing the symlink
+        target.unlink()
+        target.write_text("replaced")
+
+        with mock.patch("pathlib.Path.home", return_value=self.home):
+            self.module.restore_snapshot(snap_dir)
+
+        self.assertTrue(target.is_symlink())
+        self.assertEqual(target.readlink(), real_file)
+
+    def test_snapshot_handles_nested_paths(self):
+        target = self.home / ".config" / "jj" / "config.toml"
+        target.parent.mkdir(parents=True)
+        target.write_text("key = 'value'\n")
+
+        with mock.patch.object(self.module, "SNAPSHOT_DIR", self.root / "snaps"), \
+             mock.patch("pathlib.Path.home", return_value=self.home):
+            snap_dir = self.module.snapshot_targets([target])
+
+        snapped = snap_dir / ".config" / "jj" / "config.toml"
+        self.assertTrue(snapped.exists())
+        self.assertEqual(snapped.read_text(), "key = 'value'\n")
+
+
 if __name__ == "__main__":
     unittest.main()

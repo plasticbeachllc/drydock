@@ -82,6 +82,92 @@ CLAUDE_SETTINGS = {
 }
 
 
+SNAPSHOT_DIR = Path.home() / ".config" / "dotfiles" / "snapshots"
+
+
+def snapshot_targets(targets: list[Path]) -> Path | None:
+    """Copy all existing target paths into a timestamped snapshot directory.
+
+    Returns the snapshot directory, or None if no files needed snapshotting.
+    """
+    timestamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+    snap_dir = SNAPSHOT_DIR / timestamp
+    snapped = False
+
+    for target in targets:
+        if not target.exists() and not target.is_symlink():
+            continue
+        # Preserve path structure relative to home
+        try:
+            rel = target.relative_to(Path.home())
+        except ValueError:
+            rel = Path(str(target).lstrip("/"))
+        dest = snap_dir / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+
+        if target.is_symlink():
+            # Preserve symlink itself, not its target
+            dest.symlink_to(target.readlink())
+        elif target.is_dir():
+            shutil.copytree(target, dest, symlinks=True)
+        else:
+            shutil.copy2(target, dest)
+        snapped = True
+
+    return snap_dir if snapped else None
+
+
+def restore_snapshot(snap_dir: Path) -> None:
+    """Restore files from a snapshot directory back to their original locations."""
+    home = Path.home()
+    for root, _dirs, files in os.walk(snap_dir):
+        for name in files:
+            snap_file = Path(root) / name
+            rel = snap_file.relative_to(snap_dir)
+            target = home / rel
+
+            # Remove whatever is there now
+            if target.is_symlink() or target.exists():
+                if target.is_dir() and not target.is_symlink():
+                    shutil.rmtree(target)
+                else:
+                    target.unlink()
+
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if snap_file.is_symlink():
+                target.symlink_to(snap_file.readlink())
+            else:
+                shutil.copy2(snap_file, target)
+
+    # Also restore snapshotted symlinks in directory roots
+    for root, dirs, _files in os.walk(snap_dir):
+        for name in dirs:
+            snap_entry = Path(root) / name
+            if snap_entry.is_symlink():
+                rel = snap_entry.relative_to(snap_dir)
+                target = home / rel
+                if target.is_symlink() or target.exists():
+                    if target.is_dir() and not target.is_symlink():
+                        shutil.rmtree(target)
+                    else:
+                        target.unlink()
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.symlink_to(snap_entry.readlink())
+
+
+def _collect_provisioning_targets() -> list[Path]:
+    """Gather all file paths that provisioning steps may modify."""
+    targets = []
+    for target_or_tuple in SYMLINK_MAP.values():
+        if isinstance(target_or_tuple, tuple):
+            targets.append(target_or_tuple[1])
+        else:
+            targets.append(target_or_tuple)
+    targets.append(CLAUDE_SETTINGS_DIR / "settings.json")
+    targets.append(ZSHRC_LOCAL)
+    return targets
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description="Dotfiles provisioner")
@@ -620,60 +706,75 @@ def main(argv: list[str] | None = None) -> None:
     all_subs = {**identity, **theme_subs}
     all_placeholder_keys = list(all_subs.keys())
 
-    # Step 3: Symlinks
-    print("Symlinks:\n")
-    RENDERED_DIR.mkdir(parents=True, exist_ok=True)
+    # Snapshot existing config before provisioning
+    targets = _collect_provisioning_targets()
+    snap_dir = snapshot_targets(targets)
+    if snap_dir:
+        print(f"Snapshot:\n\n  saved to {snap_dir}\n")
 
-    for repo_rel, target_or_tuple in SYMLINK_MAP.items():
-        # Handle dynamically generated files (stored as tuples)
-        if isinstance(target_or_tuple, tuple):
-            source, target = target_or_tuple
-            status = create_symlink(source, target)
-            print(f"  {status:40s} {target} -> {source}")
-            continue
+    try:
+        # Step 3: Symlinks
+        print("Symlinks:\n")
+        RENDERED_DIR.mkdir(parents=True, exist_ok=True)
 
-        target = target_or_tuple
-        src = REPO_ROOT / repo_rel
-        if not src.exists():
-            print(f"  MISSING  {repo_rel} (skipped)")
-            continue
+        for repo_rel, target_or_tuple in SYMLINK_MAP.items():
+            # Handle dynamically generated files (stored as tuples)
+            if isinstance(target_or_tuple, tuple):
+                source, target = target_or_tuple
+                status = create_symlink(source, target)
+                print(f"  {status:40s} {target} -> {source}")
+                continue
 
-        if needs_templating(src, all_placeholder_keys):
-            rendered = RENDERED_DIR / repo_rel
-            rendered.parent.mkdir(parents=True, exist_ok=True)
-            rendered.write_text(render_template(src, all_subs))
-            # Preserve executable bit from source
-            src_mode = src.stat().st_mode
-            rendered.chmod(src_mode & 0o7777)
-            status = create_symlink(rendered, target)
-            print(f"  {status:40s} {target} -> {rendered}")
+            target = target_or_tuple
+            src = REPO_ROOT / repo_rel
+            if not src.exists():
+                print(f"  MISSING  {repo_rel} (skipped)")
+                continue
+
+            if needs_templating(src, all_placeholder_keys):
+                rendered = RENDERED_DIR / repo_rel
+                rendered.parent.mkdir(parents=True, exist_ok=True)
+                rendered.write_text(render_template(src, all_subs))
+                # Preserve executable bit from source
+                src_mode = src.stat().st_mode
+                rendered.chmod(src_mode & 0o7777)
+                status = create_symlink(rendered, target)
+                print(f"  {status:40s} {target} -> {rendered}")
+            else:
+                status = create_symlink(src, target)
+                print(f"  {status:40s} {target} -> {src}")
+
+        print()
+
+        # Step 4: Claude Code
+        print("Claude Code:\n")
+        configure_claude_code()
+        print()
+
+        # Step 5: App Icons (macOS only)
+        print("App Icons:\n")
+        configure_app_icons()
+        print()
+
+        # Step 6: Default Browser
+        print("Default Browser:\n")
+        set_default_browser()
+        print()
+
+        # Step 7: 1Password & Secrets
+        if non_interactive:
+            print("1Password:\n")
+            print("  skipped (non-interactive mode)\n")
         else:
-            status = create_symlink(src, target)
-            print(f"  {status:40s} {target} -> {src}")
+            provision_secrets(identity)
 
-    print()
-
-    # Step 4: Claude Code
-    print("Claude Code:\n")
-    configure_claude_code()
-    print()
-
-    # Step 5: App Icons (macOS only)
-    print("App Icons:\n")
-    configure_app_icons()
-    print()
-
-    # Step 6: Default Browser
-    print("Default Browser:\n")
-    set_default_browser()
-    print()
-
-    # Step 7: 1Password & Secrets
-    if non_interactive:
-        print("1Password:\n")
-        print("  skipped (non-interactive mode)\n")
-    else:
-        provision_secrets(identity)
+    except Exception as exc:
+        print(f"\nProvisioning failed: {exc}\n")
+        if snap_dir:
+            print("Restoring from snapshot...")
+            restore_snapshot(snap_dir)
+            print(f"  restored from {snap_dir}\n")
+        raise SystemExit(1) from exc
 
     print("Done.")
 
