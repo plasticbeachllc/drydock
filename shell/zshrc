@@ -99,13 +99,6 @@ cn() {
 export DELTA_PAGER="less -R"
 export BAT_THEME="base16"
 
-# --- Secrets ---
-# Prefer 1Password if available and authenticated, otherwise fall back to
-# values set in ~/.zshrc.local (written by setup.py during provisioning)
-if command -v op &>/dev/null && op whoami &>/dev/null 2>&1; then
-    export OPENAI_API_KEY=$(op read "op://Personal/openai-dotfile/credential" --account my --no-newline 2>/dev/null)
-fi
-
 # --- MOTD ---
 __THEME_MOTD__
 

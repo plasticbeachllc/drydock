@@ -24,13 +24,10 @@ IS_LINUX = sys.platform.startswith("linux")
 # Placeholders that setup.py will substitute with real values
 PLACEHOLDERS = ["__NAME__", "__EMAIL__"]
 
-# Secrets that can be manually provided during setup if 1Password isn't available.
-# The canonical op:// URIs live in shell/zshrc (the runtime source of truth).
-MANUAL_SECRETS = [
-    "OPENAI_API_KEY",
-]
-
 ZSHRC_LOCAL = Path.home() / ".zshrc.local"
+
+# Marker used to detect whether the secrets template has been appended
+_SECRETS_MARKER = "# --- 1Password secrets ---"
 
 # 1Password team account — sign-in address (not secret, just a subdomain)
 OP_TEAM_ADDRESS = "plasticbeach.1password.com"
@@ -427,60 +424,51 @@ def set_default_browser() -> None:
         print(f"  skipped (unsupported platform: {sys.platform})")
 
 
-def _ensure_zshrc_local_permissions() -> None:
-    """Ensure ~/.zshrc.local has restrictive permissions (0600)."""
-    if ZSHRC_LOCAL.exists():
-        ZSHRC_LOCAL.chmod(0o600)
+def seed_zshrc_local_secrets_template() -> None:
+    """Append the 1Password secrets template to ~/.zshrc.local if not already present.
 
+    Creates the file if it doesn't exist. Skips if the marker is already present
+    so re-runs don't duplicate the comment block.
+    """
+    template = (
+        f"\n{_SECRETS_MARKER}\n"
+        "# Add secrets here using 1Password CLI. Secrets are resolved at runtime\n"
+        "# and never written to disk in plaintext. Example:\n"
+        "#   export MY_API_KEY=$(op read \"op://Vault/Item/field\" --no-newline 2>/dev/null)\n"
+    )
 
-def write_secret_to_zshrc_local(name: str, value: str) -> None:
-    """Write an export line to ~/.zshrc.local, replacing if it already exists."""
-    marker = f"export {name}="
     if ZSHRC_LOCAL.exists():
         content = ZSHRC_LOCAL.read_text()
-        lines = content.splitlines()
-        for i, line in enumerate(lines):
-            if line.startswith(marker):
-                lines[i] = f'export {name}="{value}"'
-                ZSHRC_LOCAL.write_text("\n".join(lines) + "\n")
-                _ensure_zshrc_local_permissions()
-                return
+        if _SECRETS_MARKER in content:
+            print("  ~/.zshrc.local secrets template already present")
+            return
         with ZSHRC_LOCAL.open("a") as f:
-            f.write(f'export {name}="{value}"\n')
+            f.write(template)
     else:
-        ZSHRC_LOCAL.write_text(f'export {name}="{value}"\n')
-    _ensure_zshrc_local_permissions()
+        ZSHRC_LOCAL.write_text(template.lstrip("\n"))
+
+    print("  appended secrets template to ~/.zshrc.local")
 
 
 def provision_secrets(identity: dict[str, str]) -> None:
-    """Interactive secret provisioning: 1Password account staging + auth.
+    """1Password account staging, authentication, and secrets template seeding.
 
-    Stages the team 1Password account so the user only needs their master
-    password (or Touch ID) to authenticate. Falls back to manual entry
-    for environments without 1Password.
+    Ensures the 1Password CLI is configured for the team account and seeds
+    ~/.zshrc.local with a template showing how to add op:// secret reads.
+    Secrets are never written to disk — only resolved at shell startup via op CLI.
     """
     print("1Password:\n")
+
+    # Seed the secrets template comment in ~/.zshrc.local
+    seed_zshrc_local_secrets_template()
 
     has_op = op_available()
 
     if not has_op:
-        print("  1Password CLI not installed.")
-        print("  Secrets defined in zshrc will be unavailable unless set manually.\n")
-        print("  [1] Enter secrets manually (written to ~/.zshrc.local)")
-        print("  [2] Skip for now")
-        choice = input("  choice: ").strip()
-        if choice == "1":
-            print()
-            for name in MANUAL_SECRETS:
-                value = input(f"  {name}: ").strip()
-                if value:
-                    write_secret_to_zshrc_local(name, value)
-                    print(f"    -> written to ~/.zshrc.local")
-                else:
-                    print(f"    -> skipped")
-        else:
-            print("  Skipped.")
         print()
+        print("  WARNING: 1Password CLI is not installed.")
+        print("  Secrets configured via op:// URIs in ~/.zshrc.local will not resolve.")
+        print("  Install 1Password CLI and re-run setup.py to complete configuration.\n")
         return
 
     print("  1Password CLI detected.")
@@ -495,28 +483,18 @@ def provision_secrets(identity: dict[str, str]) -> None:
 
     # Authenticate if needed
     if op_authenticated():
-        print("  Already authenticated — zshrc will fetch secrets at runtime.")
+        print("  Already authenticated — secrets will resolve at shell startup.")
     else:
         print("  No active CLI session.\n")
         print("  [1] Authenticate now (Touch ID if 1Password app is open, or master password)")
-        print("  [2] Enter secrets manually (written to ~/.zshrc.local)")
-        print("  [3] Skip for now")
+        print("  [2] Skip for now")
         choice = input("  choice: ").strip()
 
         if choice == "1":
             if op_signin():
-                print("  Authenticated — secrets will be fetched live via op:// URIs.")
+                print("  Authenticated — secrets will resolve at shell startup.")
             else:
-                print("  Auth failed. Re-run setup.py or set secrets in ~/.zshrc.local.")
-        elif choice == "2":
-            print()
-            for name in MANUAL_SECRETS:
-                value = input(f"  {name}: ").strip()
-                if value:
-                    write_secret_to_zshrc_local(name, value)
-                    print(f"    -> written to ~/.zshrc.local")
-                else:
-                    print(f"    -> skipped")
+                print("  Auth failed. Re-run setup.py to try again.")
         else:
             print("  Skipped.")
 

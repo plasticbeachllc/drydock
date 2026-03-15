@@ -99,10 +99,19 @@ The status line depends on `jq` and `jj`, both of which are installed by `bootst
 
 ## Secrets
 
-Runtime secrets are expected to come from one of two places:
+Secrets are resolved at runtime via the 1Password CLI — they are never written to disk in plaintext.
 
-- Preferred: 1Password CLI via the `op://...` reads in [`shell/zshrc`](/Users/tdc/worktable/drydock/shell/zshrc)
-- Fallback: exports written to `~/.zshrc.local` by `setup.py`
+`setup.py` handles 1Password configuration:
+
+1. Seeds `~/.zshrc.local` with a template comment showing the `op read` pattern
+2. Stages the team 1Password account (`plasticbeach.1password.com`)
+3. Offers to authenticate the CLI session
+
+To add a secret, append an `op read` line to `~/.zshrc.local`:
+
+```bash
+export MY_API_KEY=$(op read "op://Vault/Item/field" --no-newline 2>/dev/null)
+```
 
 This repo should not contain machine-local secrets, auth tokens, or stateful app data.
 

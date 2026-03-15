@@ -73,35 +73,37 @@ class SetupPyTests(unittest.TestCase):
         self.assertTrue(target.is_symlink())
         self.assertEqual(target.resolve(), source.resolve())
 
-    def test_write_secret_to_zshrc_local_replaces_existing_value(self):
+    def test_seed_secrets_template_creates_file(self):
         zshrc_local = self.root / ".zshrc.local"
-        zshrc_local.write_text('export OPENAI_API_KEY="old"\n')
+        self.assertFalse(zshrc_local.exists())
 
         with mock.patch.object(self.module, "ZSHRC_LOCAL", zshrc_local):
-            self.module.write_secret_to_zshrc_local("OPENAI_API_KEY", "new")
+            self.module.seed_zshrc_local_secrets_template()
 
-        self.assertEqual(zshrc_local.read_text(), 'export OPENAI_API_KEY="new"\n')
+        content = zshrc_local.read_text()
+        self.assertIn("# --- 1Password secrets ---", content)
+        self.assertIn("op://Vault/Item/field", content)
 
-    def test_write_secret_to_zshrc_local_appends_new_value(self):
+    def test_seed_secrets_template_appends_to_existing(self):
         zshrc_local = self.root / ".zshrc.local"
-        zshrc_local.write_text('export EXISTING="1"\n')
+        zshrc_local.write_text("# existing config\nexport FOO=bar\n")
 
         with mock.patch.object(self.module, "ZSHRC_LOCAL", zshrc_local):
-            self.module.write_secret_to_zshrc_local("OPENAI_API_KEY", "new")
+            self.module.seed_zshrc_local_secrets_template()
 
-        self.assertEqual(
-            zshrc_local.read_text(),
-            'export EXISTING="1"\nexport OPENAI_API_KEY="new"\n',
-        )
+        content = zshrc_local.read_text()
+        self.assertTrue(content.startswith("# existing config\n"))
+        self.assertIn("# --- 1Password secrets ---", content)
 
-    def test_write_secret_sets_restrictive_permissions(self):
+    def test_seed_secrets_template_skips_if_marker_present(self):
         zshrc_local = self.root / ".zshrc.local"
+        original = "# --- 1Password secrets ---\n# already here\n"
+        zshrc_local.write_text(original)
 
         with mock.patch.object(self.module, "ZSHRC_LOCAL", zshrc_local):
-            self.module.write_secret_to_zshrc_local("OPENAI_API_KEY", "sk-test")
+            self.module.seed_zshrc_local_secrets_template()
 
-        mode = zshrc_local.stat().st_mode & 0o777
-        self.assertEqual(mode, 0o600)
+        self.assertEqual(zshrc_local.read_text(), original)
 
     def test_configure_claude_code_handles_malformed_json(self):
         settings_dir = self.root / ".claude"
