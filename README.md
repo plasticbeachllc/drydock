@@ -2,6 +2,8 @@
 
 Personal shell/editor/tooling dotfiles, provisioned from this repo via symlinks.
 
+Current version: **v0.1** — see [CHANGELOG.md](CHANGELOG.md) for details.
+
 ## What This Repo Manages
 
 - Zsh shell config
@@ -69,6 +71,7 @@ These repo-owned paths are linked into your home directory:
 | `ghostty/config` | `~/.config/ghostty/config` |
 | `nvim` | `~/.config/nvim` |
 | `claude/statusline.sh` | `~/.claude/statusline.sh` |
+| `ssh/config` | `~/.ssh/config` |
 
 `setup.py` also creates a dynamic symlink for the selected Ghostty theme under `~/.config/ghostty/themes/`.
 
@@ -139,8 +142,11 @@ python3 -m unittest discover -s tests -p 'test_*.py'
 ├── ghostty/
 ├── nvim/
 ├── sheldon/
+├── ssh/
 ├── starship/
+├── themes/
 ├── tests/
+├── CHANGELOG.md
 └── docs/archive/
 ```
 

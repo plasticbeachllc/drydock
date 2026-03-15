@@ -254,7 +254,7 @@ def _motd_block(theme: dict) -> str:
         '    export DOTFILES_MOTD_SHOWN=1',
         '    echo ""',
         f'    echo -e "\\033[38;2;{p_rgb}m  {icon} {label}\\033[0m"',
-        f'    echo -e "\\033[38;2;{d_rgb}m  ── dev environment v1.0\\033[0m"',
+        f'    echo -e "\\033[38;2;{d_rgb}m  ── dev environment v0.1\\033[0m"',
         '    echo ""',
         'fi',
     ])
