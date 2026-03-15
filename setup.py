@@ -256,23 +256,39 @@ def prompt_theme(non_interactive: bool = False) -> tuple[str, dict]:
     if non_interactive:
         idx = default_idx
     else:
-        for i, key in enumerate(theme_keys):
-            t = themes[key]
-            marker = "*" if key == prev else " "
-            print(f"  {marker}[{i + 1}] {t['name']} — {t['tagline']}")
+        # Pre-build gallery HTML if the script exists
+        gallery_script = REPO_ROOT / "themes" / "build_gallery.py"
+        gallery_html = REPO_ROOT / "themes" / "gallery.html"
+        has_gallery = False
+        if gallery_script.exists():
+            subprocess.run([sys.executable, str(gallery_script)], capture_output=True)
+            has_gallery = gallery_html.exists()
 
-        prompt = f"  choice [{default_idx + 1}]: "
-        choice = input(prompt).strip()
-        if not choice:
-            idx = default_idx
-        else:
+        while True:
+            for i, key in enumerate(theme_keys):
+                t = themes[key]
+                marker = "*" if key == prev else " "
+                print(f"  {marker}[{i + 1}] {t['name']} — {t['tagline']}")
+            if has_gallery:
+                print(f"    [p] Preview theme gallery in browser")
+
+            prompt = f"  choice [{default_idx + 1}]: "
+            choice = input(prompt).strip().lower()
+            if choice == "p" and has_gallery:
+                open_url(str(gallery_html))
+                print()
+                continue
+            if not choice:
+                idx = default_idx
+                break
             try:
                 idx = int(choice) - 1
                 if not 0 <= idx < len(theme_keys):
                     raise ValueError
+                break
             except ValueError:
-                print("Invalid choice.")
-                sys.exit(1)
+                print("  Invalid choice.\n")
+                continue
 
     selected_key = theme_keys[idx]
     selected = themes[selected_key]
@@ -668,16 +684,6 @@ def main(argv: list[str] | None = None) -> None:
 
     # Step 2: Theme
     print("Theme:\n")
-    if not non_interactive:
-        gallery_script = REPO_ROOT / "themes" / "build_gallery.py"
-        gallery_html = REPO_ROOT / "themes" / "gallery.html"
-        if gallery_script.exists():
-            subprocess.run([sys.executable, str(gallery_script)], capture_output=True)
-            if gallery_html.exists():
-                choice = input("  press p to preview theme gallery in browser, or Enter to skip: ").strip().lower()
-                if choice == "p":
-                    open_url(str(gallery_html))
-                print()
     theme_key, theme = prompt_theme(non_interactive=non_interactive)
     print(f"\n  Selected: {theme['name']}\n")
     print("Generating theme configs:\n")

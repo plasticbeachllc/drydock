@@ -4,3 +4,4 @@ __pycache__/
 .jj/
 theme-gallery.html
 themes/gallery.html
+nvim/lazyvim.json

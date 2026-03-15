@@ -86,15 +86,6 @@ alias jd='jj diff'
 alias jn='jj new'
 alias jc='jj commit'
 alias jds='jj describe'
-
-# --- Claude Code + cmux ---
-cn() {
-  local worktree="$1"
-  shift
-  cmux rename-workspace "$worktree"
-  claude --worktree "$worktree" "$@"
-}
-
 # --- delta / bat theme ---
 export DELTA_PAGER="less -R"
 export BAT_THEME="base16"
