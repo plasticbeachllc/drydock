@@ -63,14 +63,6 @@ SYMLINK_MAP = {
     "ssh/config":           Path.home() / ".ssh" / "config",
 }
 
-# App icon overrides: {app_path: icon_source_path} — macOS only
-APP_ICON_MAP = {
-    "/Applications/Ghostty.app": (
-        "/System/Applications/Utilities/Terminal.app"
-        "/Contents/Resources/Terminal.icns"
-    ),
-}
-
 # Claude Code settings to merge into ~/.claude/settings.json
 CLAUDE_SETTINGS_DIR = Path.home() / ".claude"
 CLAUDE_SETTINGS = {
@@ -648,56 +640,6 @@ def configure_claude_code(dry_run: bool = False) -> None:
         print("  ~/.claude/settings.json already up to date")
 
 
-def configure_app_icons(dry_run: bool = False) -> None:
-    """Set custom app icons declaratively using fileicon (macOS only)."""
-    if not IS_MACOS:
-        print("  skipped (macOS only)")
-        return
-
-    if not shutil.which("fileicon"):
-        print("  skipped (fileicon not installed — run bootstrap.sh first)")
-        return
-
-    changed = False
-    for app_path, icon_path in APP_ICON_MAP.items():
-        app = Path(app_path)
-        icon = Path(icon_path)
-        label = app.stem
-
-        if not app.exists():
-            print(f"  {label:20s} skipped (not installed)")
-            continue
-
-        if not icon.exists():
-            print(f"  {label:20s} skipped (icon source missing: {icon})")
-            continue
-
-        result = subprocess.run(
-            ["fileicon", "test", str(app)],
-            capture_output=True,
-        )
-        if result.returncode == 0:
-            print(f"  {label:20s} skipped (custom icon already set)")
-            continue
-
-        if dry_run:
-            print(f"  {label:20s} would set ({icon.name})")
-            continue
-
-        result = subprocess.run(
-            ["fileicon", "set", str(app), str(icon)],
-            capture_output=True,
-        )
-        if result.returncode == 0:
-            print(f"  {label:20s} set ({icon.name})")
-            changed = True
-        else:
-            stderr = result.stderr.decode().strip()
-            print(f"  {label:20s} failed ({stderr})")
-
-    if changed:
-        subprocess.run(["killall", "Dock"], capture_output=True)
-
 
 def open_url(path: str) -> None:
     """Open a file or URL using the platform-appropriate command."""
@@ -795,12 +737,7 @@ def main(argv: list[str] | None = None) -> None:
         configure_claude_code(dry_run=dry_run)
         print()
 
-        # Step 5: App Icons (macOS only)
-        print("App Icons:\n")
-        configure_app_icons(dry_run=dry_run)
-        print()
-
-        # Step 6: Default Browser
+        # Step 5: Default Browser
         print("Default Browser:\n")
         set_default_browser(dry_run=dry_run)
         print()

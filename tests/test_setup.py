@@ -201,18 +201,6 @@ class PlatformDetectionTests(unittest.TestCase):
             self.assertIn(".1password", sock_path)
 
 
-class ConfigureAppIconsPlatformTests(unittest.TestCase):
-    def setUp(self):
-        self.module = load_setup_module()
-
-    def test_configure_app_icons_skips_on_linux(self):
-        with mock.patch.object(self.module, "IS_MACOS", False):
-            with mock.patch("builtins.print") as mock_print:
-                self.module.configure_app_icons()
-            mock_print.assert_called_once()
-            self.assertIn("macOS only", mock_print.call_args[0][0])
-
-
 class SetDefaultBrowserPlatformTests(unittest.TestCase):
     def setUp(self):
         self.module = load_setup_module()

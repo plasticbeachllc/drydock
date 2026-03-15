@@ -117,7 +117,6 @@ COMMON_TOOLS=(
 
 # macOS-only brew formulae
 MACOS_TOOLS=(
-    fileicon
     dmmulroy/tap/jj-starship
 )
 

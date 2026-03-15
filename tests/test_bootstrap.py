@@ -171,27 +171,6 @@ fi
         self.assertIn("==> Rust toolchain", result.stdout)
         self.assertIn("==> Running setup.py", result.stdout)
 
-    def test_bootstrap_skips_fileicon_on_linux(self):
-        """fileicon is macOS-only, should not appear in Linux installs."""
-        env = os.environ.copy()
-        env["HOME"] = str(self.home_dir)
-        env["PATH"] = f"{self.bin_dir}:/usr/bin:/bin"
-
-        result = subprocess.run(
-            ["bash", str(BOOTSTRAP_PATH)],
-            cwd=REPO_ROOT,
-            env=env,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-
-        self.assertEqual(result.returncode, 0, msg=result.stderr)
-        commands = self.log_file.read_text()
-        # fileicon is in MACOS_TOOLS, not COMMON_TOOLS
-        # On Linux, the MACOS_TOOLS array should not be installed
-        self.assertNotIn("fileicon", commands)
-
     def test_bootstrap_syntax_valid(self):
         """bootstrap.sh should pass bash -n syntax check."""
         result = subprocess.run(
