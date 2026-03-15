@@ -155,10 +155,10 @@ else
     echo "Rust toolchain already initialized."
 fi
 
-# ── AI tools (via bun) ──────────────────────────────────────
+# ── AI tools ───────────────────────────────────────────────
 banner "AI tools"
-bun install -g @anthropic-ai/claude-code 2>/dev/null || true
-bun install -g @openai/codex 2>/dev/null || true
+curl -fsSL https://claude.ai/install.sh | /bin/bash 2>/dev/null || true
+brew install codex 2>/dev/null || true
 
 # ── Post-install ────────────────────────────────────────────
 banner "Post-install"

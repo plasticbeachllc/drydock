@@ -34,7 +34,7 @@ The bootstrap install set includes:
 
 - Core shell and editor tools such as `starship`, `sheldon`, `neovim`, `gh`, `jq`, and `jj`
 - GUI apps and fonts such as `ghostty` and `font-maple-mono-nf`
-- AI tooling such as `@anthropic-ai/claude-code` and `@openai/codex`
+- AI tooling such as Claude Code (via [native installer](https://claude.ai/install.sh)) and Codex (via Homebrew)
 
 `setup.py` then:
 
