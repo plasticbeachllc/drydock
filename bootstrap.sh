@@ -170,9 +170,6 @@ fi
 # tealdeer cache
 command -v tldr &>/dev/null && tldr --update || true
 
-# sheldon plugin lock
-command -v sheldon &>/dev/null && sheldon lock || true
-
 # ── uv (for setup.py) ──────────────────────────────────────
 if ! command -v uv &>/dev/null; then
     banner "uv"
@@ -184,3 +181,6 @@ fi
 # ── Hand off to Python provisioner ──────────────────────────
 banner "Running setup.py"
 uv run "$SCRIPT_DIR/setup.py"
+
+# sheldon plugin lock (must run after setup.py symlinks plugins.toml)
+command -v sheldon &>/dev/null && sheldon lock || true
