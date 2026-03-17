@@ -107,7 +107,7 @@ Secrets are resolved at runtime via the 1Password CLI — they are never written
 `setup.py` handles 1Password configuration:
 
 1. Seeds `~/.zshrc.local` with a template comment showing the `op read` pattern
-2. Stages the team 1Password account (`plasticbeach.1password.com`)
+2. Prompts for and stages the team 1Password account
 3. Offers to authenticate the CLI session
 
 To add a secret, append an `op read` line to `~/.zshrc.local`:
@@ -117,6 +117,18 @@ export MY_API_KEY=$(op read "op://Vault/Item/field" --no-newline 2>/dev/null)
 ```
 
 This repo should not contain machine-local secrets, auth tokens, or stateful app data.
+
+## Non-interactive Mode
+
+`setup.py --non-interactive` runs without prompts, reading identity from environment variables and falling back to previously saved values in `~/.config/dotfiles/identity.json`:
+
+| Env var | Purpose |
+|---|---|
+| `DOTFILES_NAME` | Git author name |
+| `DOTFILES_EMAIL` | Git author email |
+| `DOTFILES_OP_TEAM` | 1Password team sign-in address (e.g. `myteam.1password.com`) |
+
+Also enabled automatically when `CI=1` is set.
 
 ## Tests
 

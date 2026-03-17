@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import os
+import shutil
 import stat
 import tempfile
 import unittest
@@ -342,6 +343,52 @@ class NonInteractiveTests(unittest.TestCase):
 
         self.assertEqual(result["__NAME__"], "New Name")
         self.assertEqual(result["__EMAIL__"], "new@example.com")
+
+
+class PromptOpTeamNonInteractiveTests(unittest.TestCase):
+    def setUp(self):
+        self.module = load_setup_module()
+        self.tmpdir = tempfile.mkdtemp()
+        self.root = Path(self.tmpdir)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir)
+
+    def test_prompt_op_team_non_interactive_from_env(self):
+        identity_file = self.root / "identity.json"
+        with (
+            mock.patch.object(self.module, "IDENTITY_FILE", identity_file),
+            mock.patch.dict(os.environ, {"DOTFILES_OP_TEAM": "myteam.1password.com"}),
+        ):
+            result = self.module.prompt_op_team(non_interactive=True)
+
+        self.assertEqual(result, "myteam.1password.com")
+        # Should persist the value
+        saved = json.loads(identity_file.read_text())
+        self.assertEqual(saved["__OP_TEAM__"], "myteam.1password.com")
+
+    def test_prompt_op_team_non_interactive_from_saved(self):
+        identity_file = self.root / "identity.json"
+        identity_file.parent.mkdir(parents=True, exist_ok=True)
+        identity_file.write_text(json.dumps({"__OP_TEAM__": "saved.1password.com"}))
+
+        with (
+            mock.patch.object(self.module, "IDENTITY_FILE", identity_file),
+            mock.patch.dict(os.environ, {}, clear=True),
+        ):
+            result = self.module.prompt_op_team(non_interactive=True)
+
+        self.assertEqual(result, "saved.1password.com")
+
+    def test_prompt_op_team_non_interactive_missing_exits(self):
+        identity_file = self.root / "identity.json"
+        with (
+            mock.patch.object(self.module, "IDENTITY_FILE", identity_file),
+            mock.patch.dict(os.environ, {}, clear=True),
+        ):
+            with self.assertRaises(SystemExit) as ctx:
+                self.module.prompt_op_team(non_interactive=True)
+            self.assertEqual(ctx.exception.code, 1)
 
 
 class SshConfigTemplateTests(unittest.TestCase):
