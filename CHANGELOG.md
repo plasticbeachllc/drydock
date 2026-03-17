@@ -46,7 +46,7 @@ driven by symlinks, templates, and a unified theme system.
 
 #### Theme system (`themes/`)
 
-- Three themes defined in `themes.toml`: Plastic Beach Basic, Deep Water,
+- Three themes defined in `themes.toml`: Plastic Beach, Deep Water,
   Desert Island
 - Unified color structure: base palette, accents, terminal ANSI colors, and
   preview snippets

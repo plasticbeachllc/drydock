@@ -125,13 +125,13 @@ cp ~/.config/dotfiles/identity.json ~/.config/dotfiles/identity.json.bak
 1. Run `python3 setup.py`
 2. Enter identity (name, email)
 3. Verify all three themes are listed with `[1] [2] [3]`
-4. Select **Plastic Beach Basic** (option 1)
+4. Select **Plastic Beach** (option 1)
 5. Verify output shows:
-   - `generated ghostty theme: Plastic Beach Basic`
+   - `generated ghostty theme: Plastic Beach`
    - `generated nvim theme colors`
    - `generated nvim dashboard colors`
    - `generated lazygit config`
-   - `generated btop theme: Plastic Beach Basic`
+   - `generated btop theme: Plastic Beach`
 6. Verify symlinks are created/updated
 7. Complete secrets step (skip is fine)
 

@@ -29,8 +29,8 @@ ZSHRC_LOCAL = Path.home() / ".zshrc.local"
 # Marker used to detect whether the secrets template has been appended
 _SECRETS_MARKER = "# --- 1Password secrets ---"
 
-# 1Password team account — sign-in address (not secret, just a subdomain)
-OP_TEAM_ADDRESS = "plasticbeach.1password.com"
+# 1Password team account — prompted during setup, saved in identity.json
+OP_TEAM_IDENTITY_KEY = "__OP_TEAM__"
 
 # 1Password SSH agent socket path (platform-dependent)
 if IS_MACOS:
@@ -457,7 +457,7 @@ def op_signin() -> bool:
     return False
 
 
-def op_account_staged() -> bool:
+def op_account_staged(team_address: str) -> bool:
     """Check if the team 1Password account is already added to the CLI."""
     try:
         result = subprocess.run(
@@ -465,17 +465,17 @@ def op_account_staged() -> bool:
             capture_output=True, text=True, check=True,
         )
         accounts = json.loads(result.stdout)
-        return any(a.get("url") == OP_TEAM_ADDRESS for a in accounts)
+        return any(a.get("url") == team_address for a in accounts)
     except (FileNotFoundError, subprocess.CalledProcessError, json.JSONDecodeError):
         return False
 
 
-def op_stage_account(email: str) -> bool:
+def op_stage_account(team_address: str, email: str) -> bool:
     """Pre-register the team 1Password account so signin only needs master password."""
-    print(f"  Adding {OP_TEAM_ADDRESS} account for {email}...")
+    print(f"  Adding {team_address} account for {email}...")
     result = subprocess.run([
         "op", "account", "add",
-        "--address", OP_TEAM_ADDRESS,
+        "--address", team_address,
         "--email", email,
     ])
     return result.returncode == 0
@@ -565,7 +565,46 @@ def seed_zshrc_local_secrets_template(dry_run: bool = False) -> None:
     print("  appended secrets template to ~/.zshrc.local")
 
 
-def provision_secrets(identity: dict[str, str], dry_run: bool = False) -> None:
+def prompt_op_team(non_interactive: bool = False) -> str:
+    """Prompt for the 1Password team sign-in address.
+
+    In non-interactive mode, reads from DOTFILES_OP_TEAM env var or
+    falls back to a previously saved value in identity.json.
+    """
+    identity = load_identity()
+    default = identity.get(OP_TEAM_IDENTITY_KEY, "")
+
+    if non_interactive:
+        env_val = os.environ.get("DOTFILES_OP_TEAM", "")
+        if env_val:
+            identity[OP_TEAM_IDENTITY_KEY] = env_val
+            save_identity(identity)
+            return env_val
+        if default:
+            return default
+        print("  Error: DOTFILES_OP_TEAM env var is required in non-interactive mode.")
+        sys.exit(1)
+
+    prompt = "  team sign-in address (e.g. myteam.1password.com)"
+    if default:
+        prompt += f" [{default}]"
+    prompt += ": "
+
+    value = input(prompt).strip()
+    if not value:
+        if default:
+            return default
+        print("  Error: team address is required.")
+        sys.exit(1)
+
+    # Save for next run
+    identity[OP_TEAM_IDENTITY_KEY] = value
+    save_identity(identity)
+    return value
+
+
+def provision_secrets(identity: dict[str, str], non_interactive: bool = False,
+                      dry_run: bool = False) -> None:
     """1Password account staging, authentication, and secrets template seeding.
 
     Ensures the 1Password CLI is configured for the team account and seeds
@@ -592,17 +631,21 @@ def provision_secrets(identity: dict[str, str], dry_run: bool = False) -> None:
 
     print("  1Password CLI detected.")
 
+    team_address = prompt_op_team(non_interactive=non_interactive)
+
     # Stage team account if not already added
-    if not op_account_staged():
+    if not op_account_staged(team_address):
         email = identity.get("__EMAIL__", "")
         if email:
-            op_stage_account(email)
+            op_stage_account(team_address, email)
         else:
             print("  warning: no email in identity, skipping account staging")
 
     # Authenticate if needed
     if op_authenticated():
         print("  Already authenticated — secrets will resolve at shell startup.")
+    elif non_interactive:
+        print("  Skipping authentication (non-interactive mode).")
     else:
         print("  No active CLI session.\n")
         print("  [1] Authenticate now (Touch ID if 1Password app is open, or master password)")
@@ -749,11 +792,8 @@ def main(argv: list[str] | None = None) -> None:
         print()
 
         # Step 7: 1Password & Secrets
-        if non_interactive:
-            print("1Password:\n")
-            print("  skipped (non-interactive mode)\n")
-        else:
-            provision_secrets(identity, dry_run=dry_run)
+        provision_secrets(identity, non_interactive=non_interactive,
+                          dry_run=dry_run)
 
     except Exception as exc:
         print(f"\nProvisioning failed: {exc}\n")
