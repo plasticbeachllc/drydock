@@ -152,10 +152,10 @@ class SetupPyTests(unittest.TestCase):
         conf = self.root / "btop.conf"
         conf.write_text("vim_keys = true\n")
 
-        self.module._set_btop_color_theme(conf, "Plastic Beach Basic")
+        self.module._set_btop_color_theme(conf, "Plastic Beach")
 
         lines = conf.read_text().splitlines()
-        self.assertEqual(lines[-1], 'color_theme = "Plastic Beach Basic"')
+        self.assertEqual(lines[-1], 'color_theme = "Plastic Beach"')
 
     def test_render_template_theme_before_identity(self):
         """__THEME_NAME__ must be replaced before __NAME__ to avoid partial match."""
@@ -166,11 +166,11 @@ class SetupPyTests(unittest.TestCase):
             src,
             {
                 "__NAME__": "Taylor",
-                "__THEME_NAME__": "Plastic Beach Basic",
+                "__THEME_NAME__": "Plastic Beach",
             },
         )
 
-        self.assertEqual(rendered, "theme=Plastic Beach Basic user=Taylor\n")
+        self.assertEqual(rendered, "theme=Plastic Beach user=Taylor\n")
 
     def test_needs_templating_detects_theme_placeholders(self):
         src = self.root / "config.toml"
