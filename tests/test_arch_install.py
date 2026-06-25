@@ -29,6 +29,11 @@ class ArchInstallScriptTests(unittest.TestCase):
         self.assertIn('TTY_PATH="/dev/tty"', content)
         self.assertIn('<"$TTY_PATH"', content)
 
+    def test_arch_live_script_prints_full_device_paths(self):
+        content = ARCH_LIVE_PATH.read_text()
+        self.assertIn("lsblk -pf", content)
+        self.assertNotIn("lsblk -f", content)
+
     def test_arch_live_script_guards_x86_64_and_chroot_dns(self):
         content = ARCH_LIVE_PATH.read_text()
         self.assertIn('uname -m', content)

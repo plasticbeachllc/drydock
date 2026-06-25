@@ -31,7 +31,7 @@ Boot the standard Arch ISO, connect to the network, then run:
 curl -fsSL https://raw.githubusercontent.com/plasticbeachllc/drydock/main/install/arch-live.sh | bash
 ```
 
-That defaults to `dual-boot-use-partition`. The installer will show `lsblk -f`,
+That defaults to `dual-boot-use-partition`. The installer will show `lsblk -pf`,
 ask for the Linux root partition and existing EFI partition, and require a typed
 confirmation before formatting root.
 

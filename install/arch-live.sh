@@ -380,7 +380,7 @@ install_dual_boot_use_partition() {
     echo "This mode never repartitions a disk and never formats the EFI partition."
     echo "It formats exactly one selected Linux root partition."
     echo ""
-    lsblk -f
+    lsblk -pf
     echo ""
 
     root_part="$(read_required "Linux root partition to format (example /dev/nvme0n1p6): ")"
@@ -401,7 +401,7 @@ install_dual_boot_create_partition() {
     echo "This mode creates one Linux root partition in already-shrunk free space."
     echo "It does not shrink Windows, move partitions, format EFI, or repartition the whole disk."
     echo ""
-    lsblk -f
+    lsblk -pf
     echo ""
 
     create_disk="$(read_required "Whole disk containing the Windows install (example /dev/nvme0n1): ")"
