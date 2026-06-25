@@ -237,7 +237,7 @@ print_install_plan() {
         echo "Free-space start:         $create_start"
         echo "Free-space end:           $create_free_end"
         echo "Linux partition end:      $create_end"
-        echo "Partition command:        parted --script $create_disk mkpart 'Arch Linux' $fs_type $create_start $create_end"
+        echo "Partition command:        parted --script $create_disk mkpart ArchLinux $fs_type $create_start $create_end"
         echo "Root partition:           detected after creation"
     else
         echo "Root partition to FORMAT: $root_part"
@@ -279,7 +279,7 @@ create_root_partition() {
     confirm_exact "Type CREATE-LINUX-PARTITION $create_disk to continue: " "CREATE-LINUX-PARTITION $create_disk"
 
     banner "Create Linux root partition"
-    parted --script "$create_disk" mkpart "Arch Linux" "$fs_type" "$create_start" "$create_end"
+    parted --script "$create_disk" mkpart ArchLinux "$fs_type" "$create_start" "$create_end"
     partprobe "$create_disk"
     udevadm settle
 

@@ -53,6 +53,7 @@ class ArchInstallScriptTests(unittest.TestCase):
     def test_arch_live_script_create_partition_guardrails(self):
         content = ARCH_LIVE_PATH.read_text()
         self.assertIn("parted", content)
+        self.assertIn("mkpart ArchLinux", content)
         self.assertIn("CREATE-LINUX-PARTITION", content)
         self.assertIn("Linux root end [max", content)
         self.assertIn("normalize_gib_position", content)
