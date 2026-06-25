@@ -109,6 +109,37 @@ enable_user_services() {
     done
 }
 
+remove_gdm_login_logo() {
+    local profile_dir="${DRYDOCK_DCONF_PROFILE_DIR:-/etc/dconf/profile}"
+    local profile_file="$profile_dir/gdm"
+    local override_dir="${DRYDOCK_GDM_DCONF_DIR:-/etc/dconf/db/gdm.d}"
+    local override_file="$override_dir/00-drydock-login-screen"
+
+    if ! command -v dconf &>/dev/null; then
+        echo "Skipping GDM logo override (dconf not installed)."
+        return 0
+    fi
+
+    if [[ "${DRYDOCK_GDM_DCONF_DIR:-}" == "" && ! -d /etc/dconf/db ]]; then
+        echo "Skipping GDM logo override (GDM dconf database not found)."
+        return 0
+    fi
+
+    if [[ ! -e "$profile_file" ]]; then
+        sudo install -d -m 0755 "$profile_dir"
+        printf "%s\n" \
+            "user-db:user" \
+            "system-db:gdm" \
+            "file-db:/usr/share/gdm/greeter-dconf-defaults" | sudo tee "$profile_file" >/dev/null
+    fi
+
+    sudo install -d -m 0755 "$override_dir"
+    printf "%s\n" \
+        "[org/gnome/login-screen]" \
+        "logo=''" | sudo tee "$override_file" >/dev/null
+    sudo dconf update || FAILED_STEPS+=("GDM logo override")
+}
+
 ensure_rust_toolchain() {
     if command -v rustup &>/dev/null && rustup show active-toolchain &>/dev/null; then
         echo "Rust toolchain already initialized."
@@ -174,6 +205,7 @@ if is_arch; then
         fwupd
         tuned
         zram-generator
+        dconf
         starship
         sheldon
         eza
@@ -225,6 +257,9 @@ if is_arch; then
 
     banner "Arch services"
     enable_user_services NetworkManager.service bluetooth.service tuned.service
+
+    banner "GDM login screen"
+    remove_gdm_login_logo
 elif is_macos || is_linux; then
     # ── Homebrew ────────────────────────────────────────────
     banner "Homebrew"

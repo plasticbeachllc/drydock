@@ -20,9 +20,13 @@ class BootstrapTests(unittest.TestCase):
         self.home_dir = self.root / "home"
         self.brew_prefix = self.root / "fakebrew"
         self.log_file = self.root / "commands.log"
+        self.dconf_profile_dir = self.root / "etc" / "dconf" / "profile"
+        self.gdm_dconf_dir = self.root / "etc" / "dconf" / "db" / "gdm.d"
 
         self.bin_dir.mkdir()
         self.home_dir.mkdir()
+        self.dconf_profile_dir.mkdir(parents=True)
+        self.gdm_dconf_dir.mkdir(parents=True)
         (self.brew_prefix / "opt" / "fzf").mkdir(parents=True)
 
         self._write_executable(
@@ -115,6 +119,14 @@ exit 0
             f"""#!/usr/bin/env bash
 set -euo pipefail
 printf 'systemctl %s\\n' "$*" >> "{self.log_file}"
+exit 0
+""",
+        )
+        self._write_executable(
+            self.bin_dir / "dconf",
+            f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'dconf %s\\n' "$*" >> "{self.log_file}"
 exit 0
 """,
         )
@@ -227,6 +239,8 @@ fi
         env["PATH"] = f"{self.bin_dir}:/usr/bin:/bin"
         env["DRYDOCK_FORCE_ARCH"] = "1"
         env["DRYDOCK_SKIP_AUR"] = "1"
+        env["DRYDOCK_DCONF_PROFILE_DIR"] = str(self.dconf_profile_dir)
+        env["DRYDOCK_GDM_DCONF_DIR"] = str(self.gdm_dconf_dir)
 
         result = subprocess.run(
             ["bash", str(BOOTSTRAP_PATH)],
@@ -246,8 +260,17 @@ fi
         self.assertIn("nodejs", commands)
         self.assertIn("npm", commands)
         self.assertIn("python", commands)
+        self.assertIn("dconf", commands)
         self.assertIn("rustup default stable", commands)
         self.assertIn("sudo systemctl enable --now NetworkManager.service", commands)
+        self.assertIn(f"sudo install -d -m 0755 {self.dconf_profile_dir}", commands)
+        self.assertIn(f"sudo tee {self.dconf_profile_dir / 'gdm'}", commands)
+        self.assertIn(f"sudo install -d -m 0755 {self.gdm_dconf_dir}", commands)
+        self.assertIn(
+            f"sudo tee {self.gdm_dconf_dir / '00-drydock-login-screen'}",
+            commands,
+        )
+        self.assertIn("sudo dconf update", commands)
         self.assertNotIn("brew install starship", commands)
 
     def test_bootstrap_syntax_valid(self):
