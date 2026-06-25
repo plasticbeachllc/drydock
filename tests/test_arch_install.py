@@ -55,11 +55,11 @@ class ArchInstallScriptTests(unittest.TestCase):
         self.assertIn("parted", content)
         self.assertIn("mkpart ArchLinux", content)
         self.assertIn("CREATE-LINUX-PARTITION", content)
-        self.assertIn("Linux root end [max", content)
-        self.assertIn("normalize_gib_position", content)
-        self.assertIn("max_partition_end_inside_free_space", content)
-        self.assertIn("v - 0.1", content)
-        self.assertIn("invalid disk position", content)
+        self.assertIn("load_free_ranges", content)
+        self.assertIn("choose_free_range", content)
+        self.assertIn("parted -m", content)
+        self.assertIn("unit s print free", content)
+        self.assertIn("Free-space range number to use", content)
         self.assertIn("No existing partitions will be resized, moved, or formatted.", content)
 
     def test_arch_live_script_uses_zram_not_swap_partition(self):

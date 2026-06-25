@@ -7,6 +7,9 @@ DEFAULT_TIMEZONE="${DRYDOCK_TIMEZONE:-America/New_York}"
 DRY_RUN=0
 TTY_PATH="/dev/tty"
 MODE="dual-boot-use-partition"
+FREE_START_SECTORS=()
+FREE_END_SECTORS=()
+FREE_SIZE_SECTORS=()
 
 banner() {
     echo ""
@@ -100,50 +103,56 @@ show_block_devices() {
     lsblk -p -o NAME,SIZE,FSTYPE,FSVER,LABEL,PARTLABEL,UUID,FSAVAIL,FSUSE%,MOUNTPOINTS
 }
 
-normalize_gib_position() {
-    local value="$1"
-
-    if [[ "$value" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
-        printf '%sGiB\n' "$value"
-    elif [[ "$value" =~ ^[0-9]+([.][0-9]+)?(MiB|GiB|TiB|MB|GB|TB)$ ]]; then
-        printf '%s\n' "$value"
-    else
-        die "invalid disk position '$value' (use a number like 355, or include units like 355GiB)"
-    fi
+sector_count_to_gib() {
+    awk -v sectors="$1" 'BEGIN { printf "%.2fGiB", sectors * 512 / 1024 / 1024 / 1024 }'
 }
 
-max_partition_end_inside_free_space() {
-    local value="$1"
+load_free_ranges() {
+    local line
+    FREE_START_SECTORS=()
+    FREE_END_SECTORS=()
+    FREE_SIZE_SECTORS=()
 
-    case "$value" in
-        *GiB)
-            awk -v v="${value%GiB}" 'BEGIN { out = v - 0.1; if (out <= 0) exit 1; printf "%.3fGiB\n", out }' || \
-                die "free-space end '$value' is too small for automatic max sizing"
-            ;;
-        *MiB)
-            awk -v v="${value%MiB}" 'BEGIN { out = v - 16; if (out <= 0) exit 1; printf "%.0fMiB\n", out }' || \
-                die "free-space end '$value' is too small for automatic max sizing"
-            ;;
-        *TiB)
-            awk -v v="${value%TiB}" 'BEGIN { out = v - 0.001; if (out <= 0) exit 1; printf "%.6fTiB\n", out }' || \
-                die "free-space end '$value' is too small for automatic max sizing"
-            ;;
-        *GB)
-            awk -v v="${value%GB}" 'BEGIN { out = v - 0.1; if (out <= 0) exit 1; printf "%.3fGB\n", out }' || \
-                die "free-space end '$value' is too small for automatic max sizing"
-            ;;
-        *MB)
-            awk -v v="${value%MB}" 'BEGIN { out = v - 16; if (out <= 0) exit 1; printf "%.0fMB\n", out }' || \
-                die "free-space end '$value' is too small for automatic max sizing"
-            ;;
-        *TB)
-            awk -v v="${value%TB}" 'BEGIN { out = v - 0.001; if (out <= 0) exit 1; printf "%.6fTB\n", out }' || \
-                die "free-space end '$value' is too small for automatic max sizing"
-            ;;
-        *)
-            die "cannot automatically size max partition for '$value'"
-            ;;
-    esac
+    while IFS=: read -r _num start end size rest; do
+        [[ "$rest" == free* ]] || continue
+        start="${start%s}"
+        end="${end%s}"
+        size="${size%s}"
+        [[ "$start" =~ ^[0-9]+$ && "$end" =~ ^[0-9]+$ && "$size" =~ ^[0-9]+$ ]] || continue
+        # Ignore tiny alignment gaps.
+        (( size > 1048576 )) || continue
+        FREE_START_SECTORS+=("$start")
+        FREE_END_SECTORS+=("$end")
+        FREE_SIZE_SECTORS+=("$size")
+    done < <(parted -m "$create_disk" unit s print free)
+
+    ((${#FREE_START_SECTORS[@]} > 0)) || die "no usable free-space ranges found on $create_disk"
+}
+
+choose_free_range() {
+    local i
+    local choice
+
+    echo "Detected usable free-space ranges:"
+    for i in "${!FREE_START_SECTORS[@]}"; do
+        printf '  [%d] start=%ss end=%ss size=%s\n' \
+            "$((i + 1))" \
+            "${FREE_START_SECTORS[$i]}" \
+            "${FREE_END_SECTORS[$i]}" \
+            "$(sector_count_to_gib "${FREE_SIZE_SECTORS[$i]}")"
+    done
+
+    while true; do
+        choice="$(read_required "Free-space range number to use: ")"
+        if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= ${#FREE_START_SECTORS[@]} )); then
+            create_range_index="$((choice - 1))"
+            create_start="${FREE_START_SECTORS[$create_range_index]}s"
+            create_free_end="${FREE_END_SECTORS[$create_range_index]}s"
+            create_end="$create_free_end"
+            return 0
+        fi
+        echo "Invalid range number."
+    done
 }
 
 detect_ucode_package() {
@@ -268,8 +277,8 @@ print_install_plan() {
     echo "Hardware profile: $profile"
     if [[ -n "${create_disk:-}" ]]; then
         echo "Disk to modify:           $create_disk"
-        echo "Free-space start:         $create_start"
-        echo "Free-space end:           $create_free_end"
+        echo "Free-space range:         ${create_start} to ${create_free_end}"
+        echo "Free-space size:          $(sector_count_to_gib "${FREE_SIZE_SECTORS[$create_range_index]}")"
         echo "Linux partition end:      $create_end"
         echo "Partition command:        parted --script $create_disk mkpart ArchLinux $fs_type $create_start $create_end"
         echo "Root partition:           detected after creation"
@@ -465,15 +474,8 @@ install_dual_boot_create_partition() {
     parted "$create_disk" unit GiB print free
     echo ""
     echo "Use the free-space range created by shrinking Windows."
-    create_start="$(normalize_gib_position "$(read_required "Free-space start exactly as shown (example 350GiB): ")")"
-    create_free_end="$(normalize_gib_position "$(read_required "Free-space end exactly as shown (example 475GiB): ")")"
-    local requested_end
-    requested_end="$(read_optional "Linux root end [max, or an end position like 450GiB] (default max): " "max")"
-    if [[ "$requested_end" == "max" ]]; then
-        create_end="$(max_partition_end_inside_free_space "$create_free_end")"
-    else
-        create_end="$(normalize_gib_position "$requested_end")"
-    fi
+    load_free_ranges
+    choose_free_range
 
     collect_common_inputs
     root_part=""
