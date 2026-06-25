@@ -112,6 +112,40 @@ normalize_gib_position() {
     fi
 }
 
+max_partition_end_inside_free_space() {
+    local value="$1"
+
+    case "$value" in
+        *GiB)
+            awk -v v="${value%GiB}" 'BEGIN { out = v - 0.1; if (out <= 0) exit 1; printf "%.3fGiB\n", out }' || \
+                die "free-space end '$value' is too small for automatic max sizing"
+            ;;
+        *MiB)
+            awk -v v="${value%MiB}" 'BEGIN { out = v - 16; if (out <= 0) exit 1; printf "%.0fMiB\n", out }' || \
+                die "free-space end '$value' is too small for automatic max sizing"
+            ;;
+        *TiB)
+            awk -v v="${value%TiB}" 'BEGIN { out = v - 0.001; if (out <= 0) exit 1; printf "%.6fTiB\n", out }' || \
+                die "free-space end '$value' is too small for automatic max sizing"
+            ;;
+        *GB)
+            awk -v v="${value%GB}" 'BEGIN { out = v - 0.1; if (out <= 0) exit 1; printf "%.3fGB\n", out }' || \
+                die "free-space end '$value' is too small for automatic max sizing"
+            ;;
+        *MB)
+            awk -v v="${value%MB}" 'BEGIN { out = v - 16; if (out <= 0) exit 1; printf "%.0fMB\n", out }' || \
+                die "free-space end '$value' is too small for automatic max sizing"
+            ;;
+        *TB)
+            awk -v v="${value%TB}" 'BEGIN { out = v - 0.001; if (out <= 0) exit 1; printf "%.6fTB\n", out }' || \
+                die "free-space end '$value' is too small for automatic max sizing"
+            ;;
+        *)
+            die "cannot automatically size max partition for '$value'"
+            ;;
+    esac
+}
+
 detect_ucode_package() {
     if grep -qi genuineintel /proc/cpuinfo; then
         echo "intel-ucode"
@@ -436,7 +470,7 @@ install_dual_boot_create_partition() {
     local requested_end
     requested_end="$(read_optional "Linux root end [max, or an end position like 450GiB] (default max): " "max")"
     if [[ "$requested_end" == "max" ]]; then
-        create_end="$create_free_end"
+        create_end="$(max_partition_end_inside_free_space "$create_free_end")"
     else
         create_end="$(normalize_gib_position "$requested_end")"
     fi

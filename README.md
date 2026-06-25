@@ -52,8 +52,8 @@ curl -fsSL https://raw.githubusercontent.com/plasticbeachllc/drydock/main/instal
 ```
 
 In create-partition mode, the installer shows `parted ... print free`, asks for
-the free-space start/end, then lets you use `max` or type a smaller end position
-for the Linux root partition.
+the free-space start/end, then lets you use `max` with a small safety margin or
+type a smaller end position for the Linux root partition.
 
 `bootstrap.sh` does three things:
 

@@ -49,7 +49,8 @@ curl -fsSL https://raw.githubusercontent.com/plasticbeachllc/drydock/main/instal
 
 The installer prints `parted ... print free`, then asks for the free-space start
 and end exactly as shown. For the Linux root size, press Enter for `max` to use
-the selected free-space range, or type a smaller end position such as `450GiB`.
+the selected free-space range with a small safety margin before the displayed end
+boundary, or type a smaller end position such as `450GiB`.
 After checking the plan, rerun without `--dry-run`.
 
 ## First Boot

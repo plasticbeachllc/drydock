@@ -57,6 +57,8 @@ class ArchInstallScriptTests(unittest.TestCase):
         self.assertIn("CREATE-LINUX-PARTITION", content)
         self.assertIn("Linux root end [max", content)
         self.assertIn("normalize_gib_position", content)
+        self.assertIn("max_partition_end_inside_free_space", content)
+        self.assertIn("v - 0.1", content)
         self.assertIn("invalid disk position", content)
         self.assertIn("No existing partitions will be resized, moved, or formatted.", content)
 
