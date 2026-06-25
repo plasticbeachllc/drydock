@@ -185,6 +185,10 @@ EOF
 }
 
 collect_common_inputs() {
+    echo ""
+    echo "Current block devices:"
+    lsblk -pf
+    echo ""
     efi_part="$(read_required "Existing EFI System Partition to reuse, not format (example /dev/nvme0n1p1): ")"
     fs_type="$(read_optional "Root filesystem [ext4/btrfs] (default ext4): " "ext4")"
     hostname="$(read_required "Hostname: ")"

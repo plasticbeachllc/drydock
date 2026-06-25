@@ -34,6 +34,14 @@ class ArchInstallScriptTests(unittest.TestCase):
         self.assertIn("lsblk -pf", content)
         self.assertNotIn("lsblk -f", content)
 
+    def test_arch_live_script_reprints_devices_before_efi_prompt(self):
+        content = ARCH_LIVE_PATH.read_text()
+        self.assertIn("Current block devices:", content)
+        self.assertLess(
+            content.index("Current block devices:"),
+            content.index("Existing EFI System Partition"),
+        )
+
     def test_arch_live_script_guards_x86_64_and_chroot_dns(self):
         content = ARCH_LIVE_PATH.read_text()
         self.assertIn('uname -m', content)
