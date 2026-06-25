@@ -55,11 +55,56 @@ In create-partition mode, the installer shows `parted ... print free`, asks for
 which numbered free-space range to use, then creates the Linux root partition
 using exact sector boundaries rather than rounded GiB values.
 
+## Arch Linux Deployment
+
+The current Arch path is designed for a standard Arch ISO, not a custom ISO.
+Boot the USB installer, connect to the network, then fetch this repo's live
+installer from GitHub.
+
+For a Windows dual-boot machine where Windows has already been shrunk and the
+installer should create the Linux partition in free space:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/plasticbeachllc/drydock/main/install/arch-live.sh | bash -s -- dual-boot-create-partition --dry-run
+```
+
+After reviewing the plan, rerun without `--dry-run`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/plasticbeachllc/drydock/main/install/arch-live.sh | bash -s -- dual-boot-create-partition
+```
+
+For a machine where a Linux root partition already exists:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/plasticbeachllc/drydock/main/install/arch-live.sh | bash -s -- dual-boot-use-partition --dry-run
+```
+
+The live installer:
+
+- reuses the existing EFI partition without formatting it
+- creates or formats exactly one Linux root partition
+- keeps `/home` inside the Linux root partition
+- uses zram instead of a swap partition
+- installs a GNOME/GDM first-boot system
+- clones this repo to `~/worktable/drydock`
+
+After rebooting into Arch:
+
+```bash
+cd ~/worktable/drydock
+./bootstrap.sh
+```
+
+On Arch, `bootstrap.sh` uses `pacman` for official packages, initializes the
+Rust stable toolchain before AUR setup, installs `paru`, installs selected AUR
+packages, then runs `uv run setup.py`.
+
 `bootstrap.sh` does three things:
 
 1. Installs the core package/tooling dependencies with Homebrew on macOS,
    `pacman`/AUR on Arch Linux, or Homebrew on other Linux distributions.
-2. Initializes the Rust toolchain with `rustup-init` if `~/.cargo/env` does not exist.
+2. Initializes the Rust toolchain.
 3. Runs `uv run setup.py`.
 
 The bootstrap install set includes:
