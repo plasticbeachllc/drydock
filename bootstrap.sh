@@ -109,6 +109,20 @@ enable_user_services() {
     done
 }
 
+ensure_rust_toolchain() {
+    if command -v rustup &>/dev/null && rustup show active-toolchain &>/dev/null; then
+        echo "Rust toolchain already initialized."
+        return 0
+    fi
+
+    echo "Initializing Rust toolchain..."
+    if is_arch; then
+        rustup default stable
+    else
+        rustup-init -y --no-modify-path
+    fi
+}
+
 # Trap: print summary on exit
 finish() {
     local exit_code=$?
@@ -197,6 +211,9 @@ if is_arch; then
     for package in "${ARCH_OPTIONAL_PACKAGES[@]}"; do
         sudo pacman -S --needed --noconfirm "$package" || FAILED_STEPS+=("optional Arch package $package")
     done
+
+    banner "Rust toolchain"
+    ensure_rust_toolchain
 
     banner "AUR packages"
     install_paru || FAILED_STEPS+=("paru")
@@ -303,17 +320,9 @@ if ! command -v bun &>/dev/null; then
 fi
 
 # ── Rust toolchain ──────────────────────────────────────────
-banner "Rust toolchain"
-
-if [ ! -f "$HOME/.cargo/env" ]; then
-    echo "Initializing Rust toolchain..."
-    if is_arch; then
-        rustup default stable
-    else
-        rustup-init -y --no-modify-path
-    fi
-else
-    echo "Rust toolchain already initialized."
+if ! is_arch; then
+    banner "Rust toolchain"
+    ensure_rust_toolchain
 fi
 
 # ── AI tools ───────────────────────────────────────────────

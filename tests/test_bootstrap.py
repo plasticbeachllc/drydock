@@ -88,6 +88,9 @@ exit 0
             f"""#!/usr/bin/env bash
 set -euo pipefail
 printf 'rustup %s\\n' "$*" >> "{self.log_file}"
+if [ "${{1:-}}" = "show" ] && [ "${{2:-}}" = "active-toolchain" ]; then
+  exit 1
+fi
 exit 0
 """,
         )
