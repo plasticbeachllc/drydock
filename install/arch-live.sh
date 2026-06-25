@@ -96,6 +96,10 @@ require_efi_partition() {
         die "$path does not look like an EFI System Partition (expected vfat/FAT, got ${fstype:-unknown})"
 }
 
+show_block_devices() {
+    lsblk -p -o NAME,SIZE,FSTYPE,FSVER,LABEL,PARTLABEL,UUID,FSAVAIL,FSUSE%,MOUNTPOINTS
+}
+
 normalize_gib_position() {
     local value="$1"
 
@@ -199,7 +203,7 @@ EOF
 collect_common_inputs() {
     echo ""
     echo "Current block devices:"
-    lsblk -pf
+    show_block_devices
     echo ""
     efi_part="$(read_required "Existing EFI System Partition to reuse, not format (example /dev/nvme0n1p1): ")"
     fs_type="$(read_optional "Root filesystem [ext4/btrfs] (default ext4): " "ext4")"
@@ -396,7 +400,7 @@ install_dual_boot_use_partition() {
     echo "This mode never repartitions a disk and never formats the EFI partition."
     echo "It formats exactly one selected Linux root partition."
     echo ""
-    lsblk -pf
+    show_block_devices
     echo ""
 
     root_part="$(read_required "Linux root partition to format (example /dev/nvme0n1p6): ")"
@@ -417,7 +421,7 @@ install_dual_boot_create_partition() {
     echo "This mode creates one Linux root partition in already-shrunk free space."
     echo "It does not shrink Windows, move partitions, format EFI, or repartition the whole disk."
     echo ""
-    lsblk -pf
+    show_block_devices
     echo ""
 
     create_disk="$(read_required "Whole disk containing the Windows install (example /dev/nvme0n1): ")"

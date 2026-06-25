@@ -31,7 +31,9 @@ class ArchInstallScriptTests(unittest.TestCase):
 
     def test_arch_live_script_prints_full_device_paths(self):
         content = ARCH_LIVE_PATH.read_text()
-        self.assertIn("lsblk -pf", content)
+        self.assertIn("show_block_devices", content)
+        self.assertIn("NAME,SIZE,FSTYPE,FSVER,LABEL,PARTLABEL", content)
+        self.assertIn("lsblk -p", content)
         self.assertNotIn("lsblk -f", content)
 
     def test_arch_live_script_reprints_devices_before_efi_prompt(self):
