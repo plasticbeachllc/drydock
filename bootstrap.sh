@@ -195,6 +195,9 @@ if is_arch; then
         jujutsu
         lazyjj
         rustup
+        nodejs
+        npm
+        python
         neovim
         fprintd
         noto-fonts
@@ -277,6 +280,8 @@ COMMON_TOOLS=(
     lazyjj
     1password-cli
     rustup-init
+    node
+    python
     neovim
 )
 

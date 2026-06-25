@@ -17,7 +17,7 @@ return {
   {
     "mason-org/mason.nvim",
     opts = function(_, opts)
-      vim.list_extend(opts.ensure_installed or {}, {
+      opts.ensure_installed = vim.list_extend(opts.ensure_installed or {}, {
         "pyright",
         "typescript-language-server",
         "rust-analyzer",
