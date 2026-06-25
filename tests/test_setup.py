@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import stat
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -389,6 +390,58 @@ class PromptOpTeamNonInteractiveTests(unittest.TestCase):
             with self.assertRaises(SystemExit) as ctx:
                 self.module.prompt_op_team(non_interactive=True)
             self.assertEqual(ctx.exception.code, 1)
+
+
+class OnePasswordCliTests(unittest.TestCase):
+    def setUp(self):
+        self.module = load_setup_module()
+
+    def test_op_signin_uses_raw_force_and_verifies_session_for_account(self):
+        signin_result = mock.Mock(returncode=0, stdout="session-token\n")
+        whoami_result = mock.Mock(returncode=0)
+
+        with mock.patch.object(
+            self.module.subprocess,
+            "run",
+            side_effect=[signin_result, whoami_result],
+        ) as run:
+            self.assertTrue(self.module.op_signin("myteam.1password.com"))
+
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertEqual(commands[0], [
+            "op", "signin", "--raw", "--force",
+            "--account", "myteam.1password.com",
+        ])
+        self.assertEqual(commands[1], [
+            "op", "whoami",
+            "--account", "myteam.1password.com",
+            "--session", "session-token",
+        ])
+
+    def test_op_signin_accepts_app_integration_without_session_token(self):
+        signin_result = mock.Mock(returncode=0, stdout="")
+        whoami_result = mock.Mock(returncode=0)
+
+        with mock.patch.object(
+            self.module.subprocess,
+            "run",
+            side_effect=[signin_result, whoami_result],
+        ) as run:
+            self.assertTrue(self.module.op_signin("myteam.1password.com"))
+
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertEqual(commands[1], [
+            "op", "whoami",
+            "--account", "myteam.1password.com",
+        ])
+
+    def test_op_authenticated_returns_false_when_whoami_fails(self):
+        with mock.patch.object(
+            self.module.subprocess,
+            "run",
+            side_effect=subprocess.CalledProcessError(1, ["op", "whoami"]),
+        ):
+            self.assertFalse(self.module.op_authenticated("myteam.1password.com"))
 
 
 class SshConfigTemplateTests(unittest.TestCase):

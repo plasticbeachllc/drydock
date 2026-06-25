@@ -437,20 +437,32 @@ def op_available() -> bool:
         return False
 
 
-def op_authenticated() -> bool:
+def op_authenticated(account: str | None = None, session_token: str | None = None) -> bool:
     """Check if 1Password CLI is signed in."""
+    command = ["op", "whoami"]
+    if account:
+        command.extend(["--account", account])
+    if session_token:
+        command.extend(["--session", session_token])
     try:
-        subprocess.run(["op", "whoami"], capture_output=True, check=True)
+        subprocess.run(command, capture_output=True, check=True)
         return True
     except (FileNotFoundError, subprocess.CalledProcessError):
         return False
 
 
-def op_signin() -> bool:
+def op_signin(account: str | None = None) -> bool:
     """Interactive 1Password sign-in. Returns True if successful."""
     print("  Signing in to 1Password...")
-    result = subprocess.run(["op", "signin"])
-    if result.returncode == 0 and op_authenticated():
+    command = ["op", "signin", "--raw", "--force"]
+    if account:
+        command.extend(["--account", account])
+    result = subprocess.run(command, stdout=subprocess.PIPE, text=True)
+    session_token = result.stdout.strip()
+    if result.returncode == 0 and op_authenticated(
+        account=account,
+        session_token=session_token or None,
+    ):
         print("  Signed in successfully.")
         return True
     print("  Sign-in failed.")
@@ -653,7 +665,7 @@ def provision_secrets(identity: dict[str, str], non_interactive: bool = False,
         choice = input("  choice: ").strip()
 
         if choice == "1":
-            if op_signin():
+            if op_signin(team_address):
                 print("  Authenticated — secrets will resolve at shell startup.")
             else:
                 print("  Auth failed. Re-run setup.py to try again.")
