@@ -53,6 +53,8 @@ class ArchInstallScriptTests(unittest.TestCase):
         self.assertIn("parted", content)
         self.assertIn("CREATE-LINUX-PARTITION", content)
         self.assertIn("Linux root end [max", content)
+        self.assertIn("normalize_gib_position", content)
+        self.assertIn("invalid disk position", content)
         self.assertIn("No existing partitions will be resized, moved, or formatted.", content)
 
     def test_arch_live_script_uses_zram_not_swap_partition(self):

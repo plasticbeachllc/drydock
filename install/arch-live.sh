@@ -96,6 +96,18 @@ require_efi_partition() {
         die "$path does not look like an EFI System Partition (expected vfat/FAT, got ${fstype:-unknown})"
 }
 
+normalize_gib_position() {
+    local value="$1"
+
+    if [[ "$value" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+        printf '%sGiB\n' "$value"
+    elif [[ "$value" =~ ^[0-9]+([.][0-9]+)?(MiB|GiB|TiB|MB|GB|TB)$ ]]; then
+        printf '%s\n' "$value"
+    else
+        die "invalid disk position '$value' (use a number like 355, or include units like 355GiB)"
+    fi
+}
+
 detect_ucode_package() {
     if grep -qi genuineintel /proc/cpuinfo; then
         echo "intel-ucode"
@@ -415,14 +427,14 @@ install_dual_boot_create_partition() {
     parted "$create_disk" unit GiB print free
     echo ""
     echo "Use the free-space range created by shrinking Windows."
-    create_start="$(read_required "Free-space start exactly as shown (example 350GiB): ")"
-    create_free_end="$(read_required "Free-space end exactly as shown (example 475GiB): ")"
+    create_start="$(normalize_gib_position "$(read_required "Free-space start exactly as shown (example 350GiB): ")")"
+    create_free_end="$(normalize_gib_position "$(read_required "Free-space end exactly as shown (example 475GiB): ")")"
     local requested_end
     requested_end="$(read_optional "Linux root end [max, or an end position like 450GiB] (default max): " "max")"
     if [[ "$requested_end" == "max" ]]; then
         create_end="$create_free_end"
     else
-        create_end="$requested_end"
+        create_end="$(normalize_gib_position "$requested_end")"
     fi
 
     collect_common_inputs
