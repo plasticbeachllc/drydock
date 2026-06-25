@@ -8,6 +8,7 @@ autoload -Uz compinit && compinit
 # --- Bun ---
 [ -f "$HOME/.local/bin/env" ] && . "$HOME/.local/bin/env"
 [ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
+export PATH="$HOME/.local/bin:$PATH"
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
@@ -37,6 +38,8 @@ eval "$(direnv hook zsh)"
 
 # --- fzf ---
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+[ -f /usr/share/fzf/key-bindings.zsh ] && source /usr/share/fzf/key-bindings.zsh
+[ -f /usr/share/fzf/completion.zsh ] && source /usr/share/fzf/completion.zsh
 
 # --- fzf config ---
 export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'

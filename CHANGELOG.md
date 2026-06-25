@@ -15,12 +15,16 @@ driven by symlinks, templates, and a unified theme system.
 
 - Platform detection (macOS vs Linux) with OS-specific install paths
 - Homebrew auto-install and session activation
+- Arch Linux first-class bootstrap path using `pacman`, `paru`, zram, and
+  laptop-oriented services
+- Standard Arch ISO installer entry point for reversible Windows dual-boot
+  installs under `install/`
 - macOS GUI apps: Ghostty, Maple Mono NF font, Google Chrome, 1Password, Telegram
 - CLI tooling: starship, sheldon, neovim, gh, git-delta, lazygit, jj, jj-fzf,
   lazyjj, ripgrep, fd, fzf, zoxide, eza, bat, btop, dust, xh, sd, tealdeer,
   direnv, jq, bun, 1password-cli
 - Rust toolchain bootstrap via `rustup-init` (idempotent)
-- AI tools: Claude Code (native installer), Codex (Homebrew)
+- AI tools: Claude Code (native installer), Codex (native installer)
 - Post-install hooks: fzf shell integration, tldr cache, sheldon lock
 - Exponential-backoff retry logic for network operations
 - Non-fatal failure tracking with end-of-run summary banner

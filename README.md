@@ -26,9 +26,39 @@ On a fresh macOS machine:
 ./bootstrap.sh
 ```
 
+On a Windows dual-boot Arch Linux laptop, boot the standard Arch ISO, connect
+to the network, then run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/plasticbeachllc/drydock/main/install/arch-live.sh | bash
+```
+
+The Arch live installer currently supports reversible dual-boot modes: it can
+use an existing Linux root partition or create one partition in already-shrunk
+free space. It reuses the existing EFI partition without formatting it, keeps
+`/home` inside root, and uses zram instead of a swap partition. See
+[install/README.md](install/README.md).
+
+To preview the same install plan without formatting or mounting anything:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/plasticbeachllc/drydock/main/install/arch-live.sh | bash -s -- --dry-run
+```
+
+If Windows has been shrunk but no Linux partition exists yet:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/plasticbeachllc/drydock/main/install/arch-live.sh | bash -s -- dual-boot-create-partition --dry-run
+```
+
+In create-partition mode, the installer shows `parted ... print free`, asks for
+the free-space start/end, then lets you use `max` or type a smaller end position
+for the Linux root partition.
+
 `bootstrap.sh` does three things:
 
-1. Installs the core package/tooling dependencies with Homebrew.
+1. Installs the core package/tooling dependencies with Homebrew on macOS,
+   `pacman`/AUR on Arch Linux, or Homebrew on other Linux distributions.
 2. Initializes the Rust toolchain with `rustup-init` if `~/.cargo/env` does not exist.
 3. Runs `uv run setup.py`.
 
@@ -36,7 +66,7 @@ The bootstrap install set includes:
 
 - Core shell and editor tools such as `starship`, `sheldon`, `neovim`, `gh`, `jq`, and `jj`
 - GUI apps and fonts such as `ghostty` and `font-maple-mono-nf`
-- AI tooling such as Claude Code (via [native installer](https://claude.ai/install.sh)) and Codex (via Homebrew)
+- AI tooling such as Claude Code (via [native installer](https://claude.ai/install.sh)) and Codex (via [native installer](https://chatgpt.com/codex/install.sh))
 
 `setup.py` then:
 

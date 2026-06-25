@@ -65,10 +65,53 @@ exit 0
 """,
         )
         self._write_executable(
+            self.bin_dir / "curl",
+            f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'curl %s\\n' "$*" >> "{self.log_file}"
+cat <<'SCRIPT'
+#!/usr/bin/env bash
+exit 0
+SCRIPT
+""",
+        )
+        self._write_executable(
             self.bin_dir / "rustup-init",
             f"""#!/usr/bin/env bash
 set -euo pipefail
 printf 'rustup-init %s\\n' "$*" >> "{self.log_file}"
+exit 0
+""",
+        )
+        self._write_executable(
+            self.bin_dir / "rustup",
+            f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'rustup %s\\n' "$*" >> "{self.log_file}"
+exit 0
+""",
+        )
+        self._write_executable(
+            self.bin_dir / "sudo",
+            f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'sudo %s\\n' "$*" >> "{self.log_file}"
+exit 0
+""",
+        )
+        self._write_executable(
+            self.bin_dir / "pacman",
+            f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'pacman %s\\n' "$*" >> "{self.log_file}"
+exit 0
+""",
+        )
+        self._write_executable(
+            self.bin_dir / "systemctl",
+            f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'systemctl %s\\n' "$*" >> "{self.log_file}"
 exit 0
 """,
         )
@@ -124,6 +167,9 @@ fi
             "fzf-install --key-bindings --completion --no-update-rc --no-bash --no-fish",
             commands,
         )
+        self.assertIn("curl -fsSL https://claude.ai/install.sh", commands)
+        self.assertIn("curl -fsSL https://chatgpt.com/codex/install.sh", commands)
+        self.assertNotIn("brew install codex", commands)
         self.assertIn(f"uv run {REPO_ROOT / 'setup.py'}", commands)
         self.assertNotIn("git clone", commands)
 
@@ -171,10 +217,45 @@ fi
         self.assertIn("==> Rust toolchain", result.stdout)
         self.assertIn("==> Running setup.py", result.stdout)
 
+    def test_bootstrap_uses_pacman_on_arch(self):
+        """Arch Linux should use pacman/AUR instead of Linuxbrew."""
+        env = os.environ.copy()
+        env["HOME"] = str(self.home_dir)
+        env["PATH"] = f"{self.bin_dir}:/usr/bin:/bin"
+        env["DRYDOCK_FORCE_ARCH"] = "1"
+        env["DRYDOCK_SKIP_AUR"] = "1"
+
+        result = subprocess.run(
+            ["bash", str(BOOTSTRAP_PATH)],
+            cwd=REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+
+        commands = self.log_file.read_text()
+        self.assertIn("sudo pacman -Syu --needed --noconfirm", commands)
+        self.assertIn("jujutsu", commands)
+        self.assertIn("lazyjj", commands)
+        self.assertIn("rustup default stable", commands)
+        self.assertIn("sudo systemctl enable --now NetworkManager.service", commands)
+        self.assertNotIn("brew install starship", commands)
+
     def test_bootstrap_syntax_valid(self):
         """bootstrap.sh should pass bash -n syntax check."""
         result = subprocess.run(
             ["bash", "-n", str(BOOTSTRAP_PATH)],
+            capture_output=True,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stderr.decode())
+
+    def test_arch_live_syntax_valid(self):
+        """Arch live installer should pass bash -n syntax check."""
+        result = subprocess.run(
+            ["bash", "-n", str(REPO_ROOT / "install" / "arch-live.sh")],
             capture_output=True,
         )
         self.assertEqual(result.returncode, 0, msg=result.stderr.decode())
