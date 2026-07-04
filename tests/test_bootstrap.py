@@ -104,6 +104,21 @@ exit 0
 """,
         )
         self._write_executable(
+            self.bin_dir / "xcrun",
+            f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'xcrun %s\\n' "$*" >> "{self.log_file}"
+if [ "${{1:-}}" = "--find" ] && [ "${{2:-}}" = "clang" ]; then
+  if [ "${{DRYDOCK_XCRUN_CLANG_MISSING:-}}" = "1" ]; then
+    exit 1
+  fi
+  echo "/Library/Developer/CommandLineTools/usr/bin/clang"
+  exit 0
+fi
+exit 0
+""",
+        )
+        self._write_executable(
             self.bin_dir / "rustup-init",
             f"""#!/usr/bin/env bash
 set -euo pipefail
@@ -127,6 +142,18 @@ exit 0
             f"""#!/usr/bin/env bash
 set -euo pipefail
 printf 'sudo %s\\n' "$*" >> "{self.log_file}"
+if [ "${{1:-}}" = "-n" ] && [ "${{2:-}}" = "true" ]; then
+  if [ "${{DRYDOCK_SUDO_CACHE_MISSING:-}}" = "1" ]; then
+    exit 1
+  fi
+  exit 0
+fi
+if [ "${{1:-}}" = "-v" ]; then
+  if [ "${{DRYDOCK_SUDO_VALIDATE_FAIL:-}}" = "1" ]; then
+    exit 1
+  fi
+  exit 0
+fi
 exit 0
 """,
         )
@@ -300,6 +327,58 @@ fi
         commands = self.log_file.read_text()
         self.assertIn("xcode-select -p", commands)
         self.assertIn("xcode-select --install", commands)
+        self.assertNotIn("brew install", commands)
+
+    def test_bootstrap_starts_xcode_tools_installer_when_clang_missing(self):
+        """macOS preflight should verify CLT tools, not just xcode-select."""
+        self._stub_uname("Darwin")
+
+        env = os.environ.copy()
+        env["HOME"] = str(self.home_dir)
+        env["PATH"] = f"{self.bin_dir}:/usr/bin:/bin"
+        env["DRYDOCK_XCRUN_CLANG_MISSING"] = "1"
+
+        result = subprocess.run(
+            ["bash", str(BOOTSTRAP_PATH)],
+            cwd=REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("After installation finishes, rerun ./bootstrap.sh.", result.stdout)
+
+        commands = self.log_file.read_text()
+        self.assertIn("xcode-select -p", commands)
+        self.assertIn("xcrun --find clang", commands)
+        self.assertIn("xcode-select --install", commands)
+        self.assertNotIn("brew install", commands)
+
+    def test_bootstrap_fails_before_homebrew_without_interactive_sudo(self):
+        """macOS preflight should not let Homebrew discover missing sudo first."""
+        self._stub_uname("Darwin")
+
+        env = os.environ.copy()
+        env["HOME"] = str(self.home_dir)
+        env["PATH"] = f"{self.bin_dir}:/usr/bin:/bin"
+        env["DRYDOCK_SUDO_CACHE_MISSING"] = "1"
+
+        result = subprocess.run(
+            ["bash", str(BOOTSTRAP_PATH)],
+            cwd=REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Run ./bootstrap.sh from an interactive Terminal", result.stdout)
+
+        commands = self.log_file.read_text()
+        self.assertIn("sudo -n true", commands)
         self.assertNotIn("brew install", commands)
 
     def test_bootstrap_fails_when_required_macos_cask_fails(self):
