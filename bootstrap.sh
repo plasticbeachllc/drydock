@@ -77,7 +77,7 @@ install_macos_cask() {
 }
 
 ensure_macos_command_line_tools() {
-    if xcode-select -p &>/dev/null; then
+    if xcode-select -p &>/dev/null && xcrun --find clang &>/dev/null; then
         echo "Xcode Command Line Tools already installed."
         return 0
     fi
@@ -87,6 +87,26 @@ ensure_macos_command_line_tools() {
     xcode-select --install || true
     echo "After installation finishes, rerun ./bootstrap.sh."
     return 1
+}
+
+ensure_macos_sudo_access() {
+    if sudo -n true 2>/dev/null; then
+        echo "sudo access already available."
+        return 0
+    fi
+
+    if [[ ! -t 0 ]]; then
+        echo "Administrator access is required for Homebrew."
+        echo "Run ./bootstrap.sh from an interactive Terminal window so sudo can prompt for your password."
+        return 1
+    fi
+
+    echo "Administrator access is required for Homebrew."
+    echo "Enter your macOS password at the sudo prompt below; sudo does not show a GUI dialog."
+    sudo -v || {
+        echo "Could not confirm sudo access."
+        return 1
+    }
 }
 
 install_paru() {
@@ -309,6 +329,7 @@ elif is_macos || is_linux; then
     if is_macos; then
         banner "macOS preflight"
         ensure_macos_command_line_tools
+        ensure_macos_sudo_access
     fi
 
     # ── Homebrew ────────────────────────────────────────────
