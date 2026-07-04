@@ -45,13 +45,17 @@ banner() {
     echo ""
 }
 
+brew_cmd() {
+    env NONINTERACTIVE=1 HOMEBREW_NO_ENV_HINTS=1 brew "$@"
+}
+
 macos_app_installed() {
     local app_name="$1"
     local cask_name="$2"
     local applications_dir="${DRYDOCK_APPLICATIONS_DIR:-/Applications}"
 
     [[ -d "$applications_dir/$app_name.app" ]] && return 0
-    brew list --cask "$cask_name" &>/dev/null
+    brew_cmd list --cask "$cask_name" &>/dev/null
 }
 
 install_macos_cask() {
@@ -65,7 +69,7 @@ install_macos_cask() {
     fi
 
     echo "Installing $app_name..."
-    if brew install --cask "$cask_name"; then
+    if brew_cmd install --cask "$cask_name"; then
         return 0
     fi
 
@@ -337,7 +341,7 @@ elif is_macos || is_linux; then
 
     if ! command -v brew &>/dev/null; then
         echo "Installing Homebrew..."
-        retry 3 /bin/bash -c 'curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | /bin/bash'
+        retry 3 env NONINTERACTIVE=1 /bin/bash -c 'curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | /bin/bash'
         # Activate brew in this session
         if is_macos; then
             eval "$(/opt/homebrew/bin/brew shellenv)"
@@ -397,16 +401,16 @@ MACOS_TOOLS=(
 )
 
 if ! is_arch; then
-    brew install "${COMMON_TOOLS[@]}" || FAILED_STEPS+=("CLI tools (some formulae)")
+    brew_cmd install "${COMMON_TOOLS[@]}" || FAILED_STEPS+=("CLI tools (some formulae)")
 fi
 
 if is_macos; then
-    brew install "${MACOS_TOOLS[@]}" || FAILED_STEPS+=("macOS-only CLI tools")
+    brew_cmd install "${MACOS_TOOLS[@]}" || FAILED_STEPS+=("macOS-only CLI tools")
 fi
 
 # On Linux, install jj-starship via brew if available
 if is_linux && ! is_arch; then
-    brew install dmmulroy/tap/jj-starship 2>/dev/null || true
+    brew_cmd install dmmulroy/tap/jj-starship 2>/dev/null || true
 fi
 
 # ── jj-fzf ──────────────────────────────────────────────────
@@ -416,7 +420,7 @@ if [[ "${DRYDOCK_FORCE_JJ_FZF_INSTALL:-}" == "1" ]] || \
     if is_arch; then
         retry 3 git clone https://github.com/tim-janik/jj-fzf.git "$HOME/.jj-fzf"
     else
-        brew install jj-fzf 2>/dev/null || \
+        brew_cmd install jj-fzf 2>/dev/null || \
         retry 3 git clone https://github.com/tim-janik/jj-fzf.git "$HOME/.jj-fzf"
     fi
 fi
@@ -427,7 +431,7 @@ if ! command -v bun &>/dev/null; then
     if is_arch; then
         sudo pacman -S --needed --noconfirm bun || FAILED_STEPS+=("bun")
     else
-        brew install oven-sh/bun/bun || FAILED_STEPS+=("bun")
+        brew_cmd install oven-sh/bun/bun || FAILED_STEPS+=("bun")
     fi
 fi
 
@@ -446,8 +450,8 @@ curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh 2>/
 banner "Post-install"
 
 # fzf shell integration
-if command -v brew &>/dev/null && [ -f "$(brew --prefix)/opt/fzf/install" ]; then
-    "$(brew --prefix)/opt/fzf/install" --key-bindings --completion --no-update-rc --no-bash --no-fish
+if command -v brew &>/dev/null && [ -f "$(brew_cmd --prefix)/opt/fzf/install" ]; then
+    "$(brew_cmd --prefix)/opt/fzf/install" --key-bindings --completion --no-update-rc --no-bash --no-fish
 fi
 
 # tealdeer cache
