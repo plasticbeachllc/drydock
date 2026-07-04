@@ -34,6 +34,14 @@ class BootstrapTests(unittest.TestCase):
             f"""#!/usr/bin/env bash
 set -euo pipefail
 printf 'brew %s\\n' "$*" >> "{self.log_file}"
+if [ "${{NONINTERACTIVE:-}}" != "1" ]; then
+  echo "brew called without NONINTERACTIVE=1" >&2
+  exit 2
+fi
+if [ "${{HOMEBREW_NO_ENV_HINTS:-}}" != "1" ]; then
+  echo "brew called without HOMEBREW_NO_ENV_HINTS=1" >&2
+  exit 2
+fi
 if [ "${{1:-}}" = "--prefix" ]; then
   echo "{self.brew_prefix}"
   exit 0
