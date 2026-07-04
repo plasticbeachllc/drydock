@@ -420,6 +420,7 @@ if is_arch; then
         sd
         tealdeer
         direnv
+        just
         lazygit
         github-cli
         jq
@@ -525,6 +526,7 @@ COMMON_TOOLS=(
     sd
     tealdeer
     direnv
+    just
     lazygit
     gh
     jq
