@@ -22,12 +22,17 @@ class BootstrapTests(unittest.TestCase):
         self.log_file = self.root / "commands.log"
         self.dconf_profile_dir = self.root / "etc" / "dconf" / "profile"
         self.gdm_dconf_dir = self.root / "etc" / "dconf" / "db" / "gdm.d"
+        self.grub_default = self.root / "etc" / "default" / "grub"
+        self.grub_config = self.root / "boot" / "grub" / "grub.cfg"
 
         self.bin_dir.mkdir()
         self.home_dir.mkdir()
         self.dconf_profile_dir.mkdir(parents=True)
         self.gdm_dconf_dir.mkdir(parents=True)
+        self.grub_default.parent.mkdir(parents=True)
+        self.grub_config.parent.mkdir(parents=True)
         (self.brew_prefix / "opt" / "fzf").mkdir(parents=True)
+        self.grub_default.write_text('GRUB_CMDLINE_LINUX_DEFAULT="quiet"\n')
 
         self._write_executable(
             self.bin_dir / "brew",
@@ -182,10 +187,56 @@ exit 0
 """,
         )
         self._write_executable(
+            self.bin_dir / "ufw",
+            f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'ufw %s\\n' "$*" >> "{self.log_file}"
+exit 0
+""",
+        )
+        self._write_executable(
+            self.bin_dir / "iptables",
+            f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'iptables %s\\n' "$*" >> "{self.log_file}"
+if [ "${{1:-}}" = "--version" ]; then
+  echo "iptables v1.8.13 (nf_tables)"
+fi
+exit 0
+""",
+        )
+        self._write_executable(
             self.bin_dir / "dconf",
             f"""#!/usr/bin/env bash
 set -euo pipefail
 printf 'dconf %s\\n' "$*" >> "{self.log_file}"
+exit 0
+""",
+        )
+        self._write_executable(
+            self.bin_dir / "gsettings",
+            f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'gsettings %s\\n' "$*" >> "{self.log_file}"
+exit 0
+""",
+        )
+        self._write_executable(
+            self.bin_dir / "gnome-extensions",
+            f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'gnome-extensions %s\\n' "$*" >> "{self.log_file}"
+if [ "${{1:-}}" = "list" ]; then
+  echo "appindicatorsupport@rgcjonas.gmail.com"
+fi
+exit 0
+""",
+        )
+        self._write_executable(
+            self.bin_dir / "grub-mkconfig",
+            f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'grub-mkconfig %s\\n' "$*" >> "{self.log_file}"
 exit 0
 """,
         )
@@ -444,6 +495,8 @@ fi
         env["DRYDOCK_SKIP_AUR"] = "1"
         env["DRYDOCK_DCONF_PROFILE_DIR"] = str(self.dconf_profile_dir)
         env["DRYDOCK_GDM_DCONF_DIR"] = str(self.gdm_dconf_dir)
+        env["DRYDOCK_GRUB_DEFAULT"] = str(self.grub_default)
+        env["DRYDOCK_GRUB_CONFIG"] = str(self.grub_config)
 
         result = subprocess.run(
             ["bash", str(BOOTSTRAP_PATH)],
@@ -464,8 +517,15 @@ fi
         self.assertIn("npm", commands)
         self.assertIn("python", commands)
         self.assertIn("dconf", commands)
+        self.assertIn("ufw", commands)
+        self.assertIn("gnome-shell-extension-appindicator", commands)
+        self.assertIn("extension-manager", commands)
         self.assertIn("rustup default stable", commands)
         self.assertIn("sudo systemctl enable --now NetworkManager.service", commands)
+        self.assertIn("sudo ufw default deny incoming", commands)
+        self.assertIn("sudo ufw default allow outgoing", commands)
+        self.assertIn("sudo ufw --force enable", commands)
+        self.assertIn("sudo systemctl enable --now ufw.service", commands)
         self.assertIn(f"sudo install -d -m 0755 {self.dconf_profile_dir}", commands)
         self.assertIn(f"sudo tee {self.dconf_profile_dir / 'gdm'}", commands)
         self.assertIn(f"sudo install -d -m 0755 {self.gdm_dconf_dir}", commands)
@@ -474,6 +534,32 @@ fi
             commands,
         )
         self.assertIn("sudo dconf update", commands)
+        self.assertIn(
+            "gsettings set org.gnome.desktop.interface color-scheme prefer-dark",
+            commands,
+        )
+        self.assertIn(
+            "gsettings set org.gnome.desktop.interface show-battery-percentage true",
+            commands,
+        )
+        self.assertIn(
+            "gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true",
+            commands,
+        )
+        self.assertIn(
+            "gsettings set org.gnome.shell favorite-apps "
+            "['com.mitchellh.ghostty.desktop', 'google-chrome.desktop', "
+            "'org.gnome.Nautilus.desktop', 'org.gnome.Settings.desktop', "
+            "'1password.desktop']",
+            commands,
+        )
+        self.assertIn(
+            "gnome-extensions enable appindicatorsupport@rgcjonas.gmail.com",
+            commands,
+        )
+        self.assertIn(f"sudo install -m 0644", commands)
+        self.assertIn(str(self.grub_default), commands)
+        self.assertIn(f"sudo grub-mkconfig -o {self.grub_config}", commands)
         self.assertNotIn("brew install starship", commands)
 
     def test_bootstrap_syntax_valid(self):

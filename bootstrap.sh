@@ -179,6 +179,132 @@ enable_user_services() {
     done
 }
 
+configure_firewall() {
+    if ! command -v ufw &>/dev/null; then
+        echo "Skipping firewall setup (ufw not installed)."
+        return 0
+    fi
+    if ! command -v iptables &>/dev/null || ! iptables --version >/dev/null 2>&1; then
+        echo "Skipping firewall setup (iptables backend unavailable)."
+        return 0
+    fi
+
+    sudo ufw default deny incoming || FAILED_STEPS+=("firewall default deny incoming")
+    sudo ufw default allow outgoing || FAILED_STEPS+=("firewall default allow outgoing")
+    sudo ufw --force enable || FAILED_STEPS+=("firewall enable")
+    sudo systemctl enable --now ufw.service || FAILED_STEPS+=("service ufw.service")
+}
+
+configure_gnome_defaults() {
+    if ! command -v gsettings &>/dev/null; then
+        echo "Skipping GNOME defaults (gsettings not installed)."
+        return 0
+    fi
+
+    local settings=(
+        "org.gnome.desktop.interface color-scheme prefer-dark"
+        "org.gnome.desktop.interface show-battery-percentage true"
+        "org.gnome.desktop.interface clock-show-date true"
+        "org.gnome.desktop.interface clock-show-weekday true"
+        "org.gnome.desktop.interface enable-hot-corners false"
+        "org.gnome.desktop.peripherals.touchpad tap-to-click true"
+        "org.gnome.desktop.peripherals.touchpad natural-scroll true"
+        "org.gnome.desktop.session idle-delay 900"
+        "org.gnome.desktop.screensaver lock-delay 0"
+    )
+
+    local setting
+    for setting in "${settings[@]}"; do
+        # shellcheck disable=SC2086
+        gsettings set $setting || FAILED_STEPS+=("GNOME setting $setting")
+    done
+
+    gsettings set org.gnome.shell favorite-apps \
+        "['com.mitchellh.ghostty.desktop', 'google-chrome.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Settings.desktop', '1password.desktop']" || \
+        FAILED_STEPS+=("GNOME favorite apps")
+}
+
+configure_gnome_extensions() {
+    local extension_id="appindicatorsupport@rgcjonas.gmail.com"
+
+    if ! command -v gnome-extensions &>/dev/null; then
+        echo "Skipping GNOME extension enablement (gnome-extensions not installed)."
+        return 0
+    fi
+
+    if gnome-extensions list | grep -Fxq "$extension_id"; then
+        gnome-extensions enable "$extension_id" || FAILED_STEPS+=("GNOME AppIndicator extension")
+        return 0
+    fi
+
+    if [[ -f "/usr/share/gnome-shell/extensions/$extension_id/metadata.json" || \
+          -f "$HOME/.local/share/gnome-shell/extensions/$extension_id/metadata.json" ]]; then
+        echo "AppIndicator extension is installed; log out and back in, then rerun bootstrap or enable it in Extension Manager."
+        return 0
+    fi
+
+    echo "Skipping AppIndicator extension enablement (extension not installed)."
+}
+
+configure_grub_boot_polish() {
+    local grub_default="${DRYDOCK_GRUB_DEFAULT:-/etc/default/grub}"
+    local grub_config="${DRYDOCK_GRUB_CONFIG:-/boot/grub/grub.cfg}"
+
+    if [[ ! -f "$grub_default" ]]; then
+        echo "Skipping GRUB boot polish ($grub_default not found)."
+        return 0
+    fi
+
+    local current=""
+    local line
+    line="$(grep -E '^GRUB_CMDLINE_LINUX_DEFAULT=' "$grub_default" | tail -n 1 || true)"
+    if [[ -n "$line" ]]; then
+        current="${line#GRUB_CMDLINE_LINUX_DEFAULT=}"
+        current="${current#\"}"
+        current="${current%\"}"
+        current="${current#\'}"
+        current="${current%\'}"
+    fi
+
+    local arg
+    for arg in logo.nologo quiet loglevel=3 rd.udev.log_level=3 systemd.show_status=auto; do
+        case " $current " in
+            *" $arg "*) ;;
+            *) current="${current:+$current }$arg" ;;
+        esac
+    done
+
+    local tmp
+    tmp="$(mktemp)"
+    awk -v value="$current" '
+        BEGIN { written = 0 }
+        /^GRUB_CMDLINE_LINUX_DEFAULT=/ {
+            if (!written) {
+                print "GRUB_CMDLINE_LINUX_DEFAULT=\"" value "\""
+                written = 1
+            }
+            next
+        }
+        { print }
+        END {
+            if (!written) {
+                print "GRUB_CMDLINE_LINUX_DEFAULT=\"" value "\""
+            }
+        }
+    ' "$grub_default" >"$tmp"
+
+    sudo install -m 0644 "$tmp" "$grub_default" || FAILED_STEPS+=("GRUB defaults")
+    rm -f "$tmp"
+
+    if command -v grub-mkconfig &>/dev/null; then
+        sudo grub-mkconfig -o "$grub_config" || FAILED_STEPS+=("GRUB config")
+    elif command -v grub2-mkconfig &>/dev/null; then
+        sudo grub2-mkconfig -o "$grub_config" || FAILED_STEPS+=("GRUB config")
+    else
+        echo "Skipping GRUB config regeneration (grub-mkconfig not installed)."
+    fi
+}
+
 remove_gdm_login_logo() {
     local profile_dir="${DRYDOCK_DCONF_PROFILE_DIR:-/etc/dconf/profile}"
     local profile_file="$profile_dir/gdm"
@@ -276,6 +402,9 @@ if is_arch; then
         tuned
         zram-generator
         dconf
+        ufw
+        gnome-shell-extension-appindicator
+        extension-manager
         starship
         sheldon
         eza
@@ -328,8 +457,20 @@ if is_arch; then
     banner "Arch services"
     enable_user_services NetworkManager.service bluetooth.service tuned.service
 
+    banner "Firewall"
+    configure_firewall
+
     banner "GDM login screen"
     remove_gdm_login_logo
+
+    banner "GNOME defaults"
+    configure_gnome_defaults
+
+    banner "GNOME extensions"
+    configure_gnome_extensions
+
+    banner "GRUB boot polish"
+    configure_grub_boot_polish
 elif is_macos || is_linux; then
     if is_macos; then
         banner "macOS preflight"

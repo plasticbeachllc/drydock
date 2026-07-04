@@ -98,7 +98,7 @@ cd ~/worktable/drydock
 
 On Arch, `bootstrap.sh` uses `pacman` for official packages, initializes the
 Rust stable toolchain before AUR setup, installs `paru`, installs selected AUR
-packages, then runs `uv run setup.py`.
+packages, applies the baseline GNOME/system defaults, then runs `uv run setup.py`.
 
 `bootstrap.sh` does three things:
 
@@ -111,6 +111,7 @@ The bootstrap install set includes:
 
 - Core shell and editor tools such as `starship`, `sheldon`, `neovim`, `gh`, `jq`, and `jj`
 - GUI apps and fonts such as `ghostty` and `font-maple-mono-nf`
+- Arch desktop/system defaults such as UFW firewall policy, GNOME dark mode, AppIndicator support, and quieter GRUB boot output
 - AI tooling such as Claude Code (via [native installer](https://claude.ai/install.sh)) and Codex (via [native installer](https://chatgpt.com/codex/install.sh))
 
 `setup.py` then:
