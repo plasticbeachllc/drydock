@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 export PATH="$HOME/.local/bin:$PATH"
+export HOMEBREW_NO_ENV_HINTS=1
 
 # ── OS detection ────────────────────────────────────────────
 OS="$(uname -s)"
@@ -341,7 +342,7 @@ elif is_macos || is_linux; then
 
     if ! command -v brew &>/dev/null; then
         echo "Installing Homebrew..."
-        retry 3 env NONINTERACTIVE=1 /bin/bash -c 'curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | /bin/bash'
+        retry 3 env NONINTERACTIVE=1 HOMEBREW_NO_ENV_HINTS=1 /bin/bash -c 'curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | /bin/bash'
         # Activate brew in this session
         if is_macos; then
             eval "$(/opt/homebrew/bin/brew shellenv)"
