@@ -38,6 +38,12 @@ if [ "${{1:-}}" = "--prefix" ]; then
   echo "{self.brew_prefix}"
   exit 0
 fi
+if [ "${{1:-}}" = "list" ] && [ "${{2:-}}" = "--cask" ]; then
+  exit 1
+fi
+if [ "${{1:-}}" = "install" ] && [ "${{2:-}}" = "--cask" ] && [ "${{3:-}}" = "${{DRYDOCK_FAIL_BREW_CASK:-}}" ]; then
+  exit 1
+fi
 if [ "${{1:-}}" = "install" ]; then
   exit 0
 fi
@@ -77,6 +83,24 @@ cat <<'SCRIPT'
 #!/usr/bin/env bash
 exit 0
 SCRIPT
+""",
+        )
+        self._write_executable(
+            self.bin_dir / "xcode-select",
+            f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'xcode-select %s\\n' "$*" >> "{self.log_file}"
+if [ "${{1:-}}" = "-p" ]; then
+  if [ "${{DRYDOCK_XCODE_SELECT_MISSING:-}}" = "1" ]; then
+    exit 1
+  fi
+  echo "/Library/Developer/CommandLineTools"
+  exit 0
+fi
+if [ "${{1:-}}" = "--install" ]; then
+  exit 0
+fi
+exit 0
 """,
         )
         self._write_executable(
@@ -154,10 +178,24 @@ fi
         path.write_text(textwrap.dedent(content))
         path.chmod(path.stat().st_mode | stat.S_IXUSR)
 
+    def _stub_uname(self, os_name: str) -> None:
+        self._write_executable(
+            self.bin_dir / "uname",
+            f"""#!/usr/bin/env bash
+if [ "${{1:-}}" = "-s" ]; then
+  echo "{os_name}"
+else
+  /usr/bin/uname "$@"
+fi
+""",
+        )
+
     def test_bootstrap_installs_packages_and_hands_off_to_setup(self):
         env = os.environ.copy()
         env["HOME"] = str(self.home_dir)
         env["PATH"] = f"{self.bin_dir}:/usr/bin:/bin"
+        env["DRYDOCK_FORCE_NON_ARCH"] = "1"
+        env["DRYDOCK_FORCE_JJ_FZF_INSTALL"] = "1"
 
         result = subprocess.run(
             ["bash", str(BOOTSTRAP_PATH)],
@@ -193,6 +231,7 @@ fi
         env = os.environ.copy()
         env["HOME"] = str(self.home_dir)
         env["PATH"] = f"{self.bin_dir}:/usr/bin:/bin"
+        env["DRYDOCK_FORCE_NON_ARCH"] = "1"
 
         result = subprocess.run(
             ["bash", str(BOOTSTRAP_PATH)],
@@ -211,11 +250,88 @@ fi
         self.assertNotIn("--cask google-chrome", commands)
         self.assertNotIn("--cask 1password", commands)
 
+    def test_bootstrap_installs_required_macos_casks_when_missing(self):
+        """On macOS, Chrome and 1Password should be installed when absent."""
+        self._stub_uname("Darwin")
+        applications_dir = self.root / "Applications"
+        applications_dir.mkdir()
+
+        env = os.environ.copy()
+        env["HOME"] = str(self.home_dir)
+        env["PATH"] = f"{self.bin_dir}:/usr/bin:/bin"
+        env["DRYDOCK_APPLICATIONS_DIR"] = str(applications_dir)
+
+        result = subprocess.run(
+            ["bash", str(BOOTSTRAP_PATH)],
+            cwd=REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+
+        commands = self.log_file.read_text()
+        self.assertIn("brew install --cask google-chrome", commands)
+        self.assertIn("brew install --cask 1password", commands)
+
+    def test_bootstrap_starts_xcode_tools_installer_when_missing(self):
+        """On macOS, missing Command Line Tools should launch installer and stop."""
+        self._stub_uname("Darwin")
+
+        env = os.environ.copy()
+        env["HOME"] = str(self.home_dir)
+        env["PATH"] = f"{self.bin_dir}:/usr/bin:/bin"
+        env["DRYDOCK_XCODE_SELECT_MISSING"] = "1"
+
+        result = subprocess.run(
+            ["bash", str(BOOTSTRAP_PATH)],
+            cwd=REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("After installation finishes, rerun ./bootstrap.sh.", result.stdout)
+
+        commands = self.log_file.read_text()
+        self.assertIn("xcode-select -p", commands)
+        self.assertIn("xcode-select --install", commands)
+        self.assertNotIn("brew install", commands)
+
+    def test_bootstrap_fails_when_required_macos_cask_fails(self):
+        """Required macOS apps should not be silently skipped on install failure."""
+        self._stub_uname("Darwin")
+        applications_dir = self.root / "Applications"
+        applications_dir.mkdir()
+
+        env = os.environ.copy()
+        env["HOME"] = str(self.home_dir)
+        env["PATH"] = f"{self.bin_dir}:/usr/bin:/bin"
+        env["DRYDOCK_APPLICATIONS_DIR"] = str(applications_dir)
+        env["DRYDOCK_FAIL_BREW_CASK"] = "google-chrome"
+
+        result = subprocess.run(
+            ["bash", str(BOOTSTRAP_PATH)],
+            cwd=REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("macOS cask google-chrome", result.stdout)
+
     def test_bootstrap_shows_section_banners(self):
         """Output should include section banners for clarity."""
         env = os.environ.copy()
         env["HOME"] = str(self.home_dir)
         env["PATH"] = f"{self.bin_dir}:/usr/bin:/bin"
+        env["DRYDOCK_FORCE_NON_ARCH"] = "1"
 
         result = subprocess.run(
             ["bash", str(BOOTSTRAP_PATH)],
