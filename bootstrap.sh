@@ -10,6 +10,7 @@ is_macos() { [[ "$OS" == "Darwin" ]]; }
 is_linux() { [[ "$OS" == "Linux" ]]; }
 is_arch() {
     [[ "${DRYDOCK_FORCE_ARCH:-}" == "1" ]] && return 0
+    [[ "${DRYDOCK_FORCE_NON_ARCH:-}" == "1" ]] && return 1
     is_linux && [[ -f /etc/arch-release ]] && command -v pacman &>/dev/null
 }
 
@@ -42,6 +43,50 @@ banner() {
     echo ""
     echo "==> $1"
     echo ""
+}
+
+macos_app_installed() {
+    local app_name="$1"
+    local cask_name="$2"
+    local applications_dir="${DRYDOCK_APPLICATIONS_DIR:-/Applications}"
+
+    [[ -d "$applications_dir/$app_name.app" ]] && return 0
+    brew list --cask "$cask_name" &>/dev/null
+}
+
+install_macos_cask() {
+    local cask_name="$1"
+    local app_name="$2"
+    local required="${3:-0}"
+
+    if macos_app_installed "$app_name" "$cask_name"; then
+        echo "$app_name already installed."
+        return 0
+    fi
+
+    echo "Installing $app_name..."
+    if brew install --cask "$cask_name"; then
+        return 0
+    fi
+
+    FAILED_STEPS+=("macOS cask $cask_name")
+    if [[ "$required" == "1" ]]; then
+        return 1
+    fi
+    return 0
+}
+
+ensure_macos_command_line_tools() {
+    if xcode-select -p &>/dev/null; then
+        echo "Xcode Command Line Tools already installed."
+        return 0
+    fi
+
+    echo "Xcode Command Line Tools are not installed."
+    echo "Starting Apple's installer..."
+    xcode-select --install || true
+    echo "After installation finishes, rerun ./bootstrap.sh."
+    return 1
 }
 
 install_paru() {
@@ -261,6 +306,11 @@ if is_arch; then
     banner "GDM login screen"
     remove_gdm_login_logo
 elif is_macos || is_linux; then
+    if is_macos; then
+        banner "macOS preflight"
+        ensure_macos_command_line_tools
+    fi
+
     # ── Homebrew ────────────────────────────────────────────
     banner "Homebrew"
 
@@ -281,11 +331,11 @@ fi
 # ── Casks (GUI apps — macOS only) ──────────────────────────
 if is_macos; then
     banner "Casks (GUI apps)"
-    brew install --cask ghostty 2>/dev/null || true
-    brew install --cask font-maple-mono-nf 2>/dev/null || true
-    brew install --cask google-chrome 2>/dev/null || true
-    brew install --cask 1password 2>/dev/null || true
-    brew install --cask telegram 2>/dev/null || true
+    install_macos_cask ghostty Ghostty
+    install_macos_cask font-maple-mono-nf "Maple Mono NF"
+    install_macos_cask google-chrome "Google Chrome" 1
+    install_macos_cask 1password 1Password 1
+    install_macos_cask telegram Telegram
 fi
 
 # ── CLI tools ───────────────────────────────────────────────
@@ -339,7 +389,8 @@ if is_linux && ! is_arch; then
 fi
 
 # ── jj-fzf ──────────────────────────────────────────────────
-if ! command -v jj-fzf &>/dev/null && [ ! -d "$HOME/.jj-fzf" ]; then
+if [[ "${DRYDOCK_FORCE_JJ_FZF_INSTALL:-}" == "1" ]] || \
+    { ! command -v jj-fzf &>/dev/null && [ ! -d "$HOME/.jj-fzf" ]; }; then
     banner "jj-fzf"
     if is_arch; then
         retry 3 git clone https://github.com/tim-janik/jj-fzf.git "$HOME/.jj-fzf"
