@@ -60,6 +60,7 @@ SYMLINK_MAP = {
     "ghostty/config":       Path.home() / ".config" / "ghostty" / "config",
     "nvim":                 Path.home() / ".config" / "nvim",
     "claude/statusline.sh": Path.home() / ".claude" / "statusline.sh",
+    "codex/skills/sync-branch": Path.home() / ".codex" / "skills" / "sync-branch",
     "ssh/config":           Path.home() / ".ssh" / "config",
 }
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sync Branch"
+  short_description: "Bring recent development into your branch"
+  default_prompt: "Use $sync-branch to sync the latest mainline development into my current branch."

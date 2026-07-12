@@ -29,6 +29,12 @@ class SetupPyTests(unittest.TestCase):
         self.addCleanup(self.temp_dir.cleanup)
         self.root = Path(self.temp_dir.name)
 
+    def test_sync_branch_skill_is_repo_owned_symlink(self):
+        self.assertEqual(
+            self.module.SYMLINK_MAP["codex/skills/sync-branch"],
+            Path.home() / ".codex" / "skills" / "sync-branch",
+        )
+
     def test_render_template_substitutes_identity_values(self):
         src = self.root / "template.txt"
         src.write_text("name=__NAME__ email=__EMAIL__\n")

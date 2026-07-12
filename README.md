@@ -147,6 +147,7 @@ These repo-owned paths are linked into your home directory:
 | `ghostty/config` | `~/.config/ghostty/config` |
 | `nvim` | `~/.config/nvim` |
 | `claude/statusline.sh` | `~/.claude/statusline.sh` |
+| `codex/skills/sync-branch` | `~/.codex/skills/sync-branch` |
 | `ssh/config` | `~/.ssh/config` |
 
 `setup.py` also creates a dynamic symlink for the selected Ghostty theme under `~/.config/ghostty/themes/`.
