@@ -132,14 +132,6 @@ exit 0
 """,
         )
         self._write_executable(
-            self.bin_dir / "rustup-init",
-            f"""#!/usr/bin/env bash
-set -euo pipefail
-printf 'rustup-init %s\\n' "$*" >> "{self.log_file}"
-exit 0
-""",
-        )
-        self._write_executable(
             self.bin_dir / "rustup",
             f"""#!/usr/bin/env bash
 set -euo pipefail
@@ -300,9 +292,20 @@ fi
         self.assertIn("gh", commands)
         self.assertIn("jq", commands)
         self.assertIn("just", commands)
-        self.assertIn("rustup-init", commands)
+        self.assertIn("rustup", commands)
+        self.assertIn("cargo-nextest", commands)
+        self.assertIn("cargo-llvm-cov", commands)
+        self.assertIn("cargo-deny", commands)
+        self.assertIn("sccache", commands)
+        self.assertIn("bacon", commands)
         self.assertIn("brew install jj-fzf", commands)
-        self.assertIn("rustup-init -y --no-modify-path", commands)
+        self.assertIn("rustup toolchain install stable", commands)
+        self.assertIn("rustup default stable", commands)
+        self.assertIn(
+            "rustup component add --toolchain stable clippy rust-analyzer rust-src rustfmt llvm-tools-preview",
+            commands,
+        )
+        self.assertNotIn("rustup-init", commands)
         self.assertIn(
             "fzf-install --key-bindings --completion --no-update-rc --no-bash --no-fish",
             commands,
@@ -312,6 +315,37 @@ fi
         self.assertNotIn("brew install codex", commands)
         self.assertIn(f"uv run {REPO_ROOT / 'setup.py'}", commands)
         self.assertNotIn("git clone", commands)
+
+    def test_bootstrap_uses_stable_when_run_from_toolchain_override(self):
+        """A project override must not change bootstrap's machine toolchain."""
+        project_dir = self.root / "project"
+        project_dir.mkdir()
+        (project_dir / "rust-toolchain.toml").write_text(
+            '[toolchain]\nchannel = "nightly"\n'
+        )
+        env = os.environ.copy()
+        env["HOME"] = str(self.home_dir)
+        env["PATH"] = f"{self.bin_dir}:/usr/bin:/bin"
+        env["DRYDOCK_FORCE_NON_ARCH"] = "1"
+
+        result = subprocess.run(
+            ["bash", str(BOOTSTRAP_PATH)],
+            cwd=project_dir,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        commands = self.log_file.read_text()
+        self.assertIn("rustup toolchain install stable", commands)
+        self.assertIn("rustup default stable", commands)
+        self.assertIn(
+            "rustup component add --toolchain stable clippy rust-analyzer rust-src rustfmt llvm-tools-preview",
+            commands,
+        )
+        self.assertNotIn("rustup show active-toolchain", commands)
 
     def test_bootstrap_skips_casks_on_linux(self):
         """On Linux, GUI casks should not be installed."""
@@ -522,7 +556,17 @@ fi
         self.assertIn("gnome-shell-extension-appindicator", commands)
         self.assertIn("extension-manager", commands)
         self.assertIn("just", commands)
+        self.assertIn("rustup toolchain install stable", commands)
         self.assertIn("rustup default stable", commands)
+        self.assertIn("cargo-nextest", commands)
+        self.assertIn("cargo-llvm-cov", commands)
+        self.assertIn("cargo-deny", commands)
+        self.assertIn("sccache", commands)
+        self.assertIn("bacon", commands)
+        self.assertIn(
+            "rustup component add --toolchain stable clippy rust-analyzer rust-src rustfmt llvm-tools-preview",
+            commands,
+        )
         self.assertIn("sudo systemctl enable --now NetworkManager.service", commands)
         self.assertIn("sudo ufw default deny incoming", commands)
         self.assertIn("sudo ufw default allow outgoing", commands)

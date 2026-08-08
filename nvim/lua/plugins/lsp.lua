@@ -5,7 +5,6 @@ return {
       servers = {
         pyright = {},
         ts_ls = {},
-        rust_analyzer = {},
         lua_ls = {},
         svelte = {},
         marksman = {},
@@ -20,11 +19,23 @@ return {
       opts.ensure_installed = vim.list_extend(opts.ensure_installed or {}, {
         "pyright",
         "typescript-language-server",
-        "rust-analyzer",
         "lua-language-server",
         "svelte-language-server",
         "marksman",
       })
+      opts.ensure_installed = vim.tbl_filter(function(package)
+        return package ~= "rust-analyzer"
+      end, opts.ensure_installed)
+    end,
+  },
+
+  -- LazyVim's Rust extra launches rust-analyzer through rustaceanvim.
+  {
+    "mrcjkb/rustaceanvim",
+    opts = function(_, opts)
+      opts.server = opts.server or {}
+      opts.server.cmd = { vim.fn.expand("~/.local/bin/rust-analyzer") }
+      return opts
     end,
   },
 

@@ -1,1 +1,34 @@
+# The official rustup installer may provide this file.
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+
+drydock_prepend_path() {
+    local path_entry="$1"
+    [[ -d "$path_entry" ]] || return 0
+    path=("$path_entry" "${path[@]:#$path_entry}")
+    export PATH
+}
+
+# Homebrew's rustup formula is keg-only. This file runs in both login and
+# non-login zsh shells, so keep its Rust toolchain proxies ahead of a standalone
+# Homebrew Rust installation for terminals and AI-launched shells alike.
+drydock_rustup_path() {
+    local rustup_bin=""
+    if [[ -n "${HOMEBREW_PREFIX:-}" ]]; then
+        rustup_bin="$HOMEBREW_PREFIX/opt/rustup/bin"
+    elif [[ -d /opt/homebrew/opt/rustup/bin ]]; then
+        rustup_bin="/opt/homebrew/opt/rustup/bin"
+    elif [[ -d /usr/local/opt/rustup/bin ]]; then
+        rustup_bin="/usr/local/opt/rustup/bin"
+    elif [[ -d /home/linuxbrew/.linuxbrew/opt/rustup/bin ]]; then
+        rustup_bin="/home/linuxbrew/.linuxbrew/opt/rustup/bin"
+    fi
+
+    if [[ -n "$rustup_bin" && -d "$rustup_bin" ]]; then
+        drydock_prepend_path "$rustup_bin"
+    fi
+}
+
+drydock_rustup_path
+
+# Repo-managed tool shims must be available to non-login terminals and agents.
+drydock_prepend_path "$HOME/.local/bin"

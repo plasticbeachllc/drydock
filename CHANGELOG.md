@@ -4,6 +4,47 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- Cross-platform Rust feedback tooling: nextest, LLVM coverage, dependency
+  policy checks, sccache, and Bacon
+- Managed Cargo wrapper with safe sccache fallback and a medium-reasoning
+  `rust-fast` Codex profile
+- Repo-owned rust-analyzer shim that resolves the active rustup toolchain in
+  login shells and GUI-launched Neovim
+- Reusable Rust project templates for the toolchain, `just` verification
+  commands, and repository agent instructions
+- LazyVim Rust and test extras with Rust-specific LSP, debugger, Cargo.toml,
+  and test integration
+
+### Changed
+
+- Made rustup the authoritative Rust toolchain for terminal, editor, and agent
+  login and non-login shells
+- Always installs and selects stable Rust explicitly, even when bootstrap runs
+  inside a project with a toolchain override
+- Provisioned rust-analyzer, rust-src, Clippy, rustfmt, and LLVM tools through
+  rustup on both Homebrew and Arch systems
+- Merge Drydock's Cargo compiler-wrapper setting without replacing unrelated
+  user Cargo configuration
+- Apply the Cargo wrapper to Cargo's active legacy config filename when it is
+  present
+- Preserve existing user Cargo compiler wrappers, and give GUI-launched Neovim
+  the same Homebrew rustup proxy precedence as shell sessions
+- Respect `CARGO_HOME`, valid dotted and inline Cargo build configuration, and
+  expose managed tool shims in non-login zsh shells
+- Configure Neovim Rust LSP to use the rustup-managed shim without Mason, and
+  make setup dry runs free of generated-theme and selection writes
+- Recommended project-scoped secrets for least-privilege AI agent sessions
+
+### Fixed
+
+- Replaced the removed Homebrew `rustup-init` executable path with the current
+  keg-only `rustup` formula and explicit proxy activation
+- Prevented Cargo from failing when sccache installation is incomplete
+
 ## [0.1] - 2026-03-14
 
 Initial release — a complete macOS/Linux development environment provisioner
