@@ -65,6 +65,7 @@ SYMLINK_MAP = {
     "rust/rust-analyzer.sh": Path.home() / ".local" / "bin" / "rust-analyzer",
     "claude/statusline.sh": Path.home() / ".claude" / "statusline.sh",
     "codex/rust-fast.config.toml": Path.home() / ".codex" / "rust-fast.config.toml",
+    "codex/skills/gh-loop-pr-feedback": Path.home() / ".codex" / "skills" / "gh-loop-pr-feedback",
     "codex/skills/sync-branch": Path.home() / ".codex" / "skills" / "sync-branch",
     "ssh/config":           Path.home() / ".ssh" / "config",
 }

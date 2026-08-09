@@ -1,0 +1,4 @@
+interface:
+  display_name: "Loop on PR Feedback"
+  short_description: "Iterate on automated GitHub PR feedback"
+  default_prompt: "Use $gh-loop-pr-feedback to keep iterating on this pull request until automated feedback is clear."

@@ -154,6 +154,7 @@ These repo-owned paths are linked into your home directory:
 | `rust/rust-analyzer.sh` | `~/.local/bin/rust-analyzer` |
 | `claude/statusline.sh` | `~/.claude/statusline.sh` |
 | `codex/rust-fast.config.toml` | `~/.codex/rust-fast.config.toml` |
+| `codex/skills/gh-loop-pr-feedback` | `~/.codex/skills/gh-loop-pr-feedback` |
 | `codex/skills/sync-branch` | `~/.codex/skills/sync-branch` |
 | `ssh/config` | `~/.ssh/config` |
 
