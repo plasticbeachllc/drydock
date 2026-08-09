@@ -111,7 +111,7 @@ packages, applies the baseline GNOME/system defaults, then runs `uv run setup.py
 
 The bootstrap install set includes:
 
-- Core shell and editor tools such as `starship`, `sheldon`, `neovim`, `gh`, `jq`, and `jj`
+- Core shell and editor tools such as `starship`, `sheldon`, `neovim`, `gh`, `flyctl`, `jq`, and `jj`
 - Rustup plus `rust-analyzer`, `rust-src`, Clippy, rustfmt, and LLVM tools
 - Rust feedback tools: `cargo-nextest`, `cargo-llvm-cov`, `cargo-deny`, `sccache`, and `bacon`
 - GUI apps and fonts such as `ghostty` and `font-maple-mono-nf`

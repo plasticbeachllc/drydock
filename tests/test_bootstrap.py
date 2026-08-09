@@ -290,6 +290,7 @@ fi
         # CLI tools are installed (no casks on Linux)
         self.assertIn("brew install starship", commands)
         self.assertIn("gh", commands)
+        self.assertIn("flyctl", commands)
         self.assertIn("jq", commands)
         self.assertIn("just", commands)
         self.assertIn("rustup", commands)

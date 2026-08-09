@@ -553,6 +553,7 @@ COMMON_TOOLS=(
     just
     lazygit
     gh
+    flyctl
     jq
     jj
     lazyjj
