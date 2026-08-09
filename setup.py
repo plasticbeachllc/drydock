@@ -6,9 +6,11 @@
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
+import tomllib
 from datetime import datetime
 from pathlib import Path
 
@@ -59,7 +61,10 @@ SYMLINK_MAP = {
     "starship/starship.toml": Path.home() / ".config" / "starship.toml",
     "ghostty/config":       Path.home() / ".config" / "ghostty" / "config",
     "nvim":                 Path.home() / ".config" / "nvim",
+    "cargo/rustc-wrapper.sh": Path.home() / ".local" / "bin" / "drydock-rustc-wrapper",
+    "rust/rust-analyzer.sh": Path.home() / ".local" / "bin" / "rust-analyzer",
     "claude/statusline.sh": Path.home() / ".claude" / "statusline.sh",
+    "codex/rust-fast.config.toml": Path.home() / ".codex" / "rust-fast.config.toml",
     "codex/skills/sync-branch": Path.home() / ".codex" / "skills" / "sync-branch",
     "ssh/config":           Path.home() / ".ssh" / "config",
 }
@@ -157,8 +162,23 @@ def _collect_provisioning_targets() -> list[Path]:
         else:
             targets.append(target_or_tuple)
     targets.append(CLAUDE_SETTINGS_DIR / "settings.json")
+    targets.append(active_cargo_config())
     targets.append(ZSHRC_LOCAL)
     return targets
+
+
+def active_cargo_config(cargo_home: Path | None = None) -> Path:
+    """Return Cargo's effective home config path, including its legacy name."""
+    if cargo_home is None:
+        cargo_home_value = os.environ.get("CARGO_HOME")
+        cargo_home = Path(cargo_home_value).expanduser() if cargo_home_value else Path.home() / ".cargo"
+    config_toml = cargo_home / "config.toml"
+    config_legacy = cargo_home / "config"
+    # Cargo keeps compatibility with ~/.cargo/config and prefers it when both
+    # names exist, so mutating config.toml in that situation has no effect.
+    if config_legacy.exists() or config_legacy.is_symlink():
+        return config_legacy
+    return config_toml
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -192,7 +212,7 @@ def save_identity(identity: dict[str, str]) -> None:
     IDENTITY_FILE.write_text(json.dumps(identity, indent=2) + "\n")
 
 
-def prompt_identity(non_interactive: bool = False) -> dict[str, str]:
+def prompt_identity(non_interactive: bool = False, dry_run: bool = False) -> dict[str, str]:
     """Prompt for identity values, using saved values as defaults.
 
     In non-interactive mode, reads from DOTFILES_NAME / DOTFILES_EMAIL env vars
@@ -209,7 +229,8 @@ def prompt_identity(non_interactive: bool = False) -> dict[str, str]:
             elif key not in identity:
                 print(f"Error: {env_map[key]} env var is required in non-interactive mode.")
                 sys.exit(1)
-        save_identity(identity)
+        if not dry_run:
+            save_identity(identity)
         return identity
 
     for key in PLACEHOLDERS:
@@ -229,11 +250,12 @@ def prompt_identity(non_interactive: bool = False) -> dict[str, str]:
                 sys.exit(1)
         identity[key] = value
 
-    save_identity(identity)
+    if not dry_run:
+        save_identity(identity)
     return identity
 
 
-def prompt_theme(non_interactive: bool = False) -> tuple[str, dict]:
+def prompt_theme(non_interactive: bool = False, dry_run: bool = False) -> tuple[str, dict]:
     """Prompt for theme selection, returns (theme_key, theme_dict).
 
     In non-interactive mode, uses the previously saved theme or defaults to the first.
@@ -261,7 +283,7 @@ def prompt_theme(non_interactive: bool = False) -> tuple[str, dict]:
         gallery_script = REPO_ROOT / "themes" / "build_gallery.py"
         gallery_html = REPO_ROOT / "themes" / "gallery.html"
         has_gallery = False
-        if gallery_script.exists():
+        if not dry_run and gallery_script.exists():
             subprocess.run([sys.executable, str(gallery_script)], capture_output=True)
             has_gallery = gallery_html.exists()
 
@@ -296,12 +318,13 @@ def prompt_theme(non_interactive: bool = False) -> tuple[str, dict]:
 
     # Save selection
     identity["__THEME__"] = selected_key
-    save_identity(identity)
+    if not dry_run:
+        save_identity(identity)
 
     return selected_key, selected
 
 
-def generate_theme_files(theme_key: str, theme: dict) -> dict[str, str]:
+def generate_theme_files(theme_key: str, theme: dict, dry_run: bool = False) -> dict[str, str]:
     """Generate all theme-dependent files. Returns placeholder dict for templates."""
     sys.path.insert(0, str(REPO_ROOT / "themes"))
     from generate import (
@@ -313,14 +336,16 @@ def generate_theme_files(theme_key: str, theme: dict) -> dict[str, str]:
         theme_placeholders,
     )
 
-    GENERATED_DIR.mkdir(parents=True, exist_ok=True)
-
     # Ghostty theme file — written to rendered dir, symlinked dynamically
     ghostty_theme_dir = RENDERED_DIR / "ghostty" / "themes"
-    ghostty_theme_dir.mkdir(parents=True, exist_ok=True)
     ghostty_theme_path = ghostty_theme_dir / theme["name"]
-    ghostty_theme_path.write_text(ghostty_theme(theme))
-    print(f"  generated ghostty theme: {theme['name']}")
+    if dry_run:
+        print(f"  would generate ghostty theme: {theme['name']}")
+    else:
+        GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+        ghostty_theme_dir.mkdir(parents=True, exist_ok=True)
+        ghostty_theme_path.write_text(ghostty_theme(theme))
+        print(f"  generated ghostty theme: {theme['name']}")
 
     # Add dynamic ghostty theme symlink
     target = Path.home() / ".config" / "ghostty" / "themes" / theme["name"]
@@ -328,31 +353,26 @@ def generate_theme_files(theme_key: str, theme: dict) -> dict[str, str]:
 
     # Neovim catppuccin colors
     nvim_colors_path = GENERATED_DIR / "theme_colors.lua"
-    nvim_colors_path.write_text(nvim_theme_colors(theme))
-    print(f"  generated nvim theme colors")
-
-    # Neovim dashboard colors
     dash_path = GENERATED_DIR / "dashboard_colors.lua"
-    dash_path.write_text(nvim_dashboard_colors(theme))
-    print(f"  generated nvim dashboard colors")
-
-    # Lazygit config
     lazygit_dir = Path.home() / ".config" / "lazygit"
-    lazygit_dir.mkdir(parents=True, exist_ok=True)
     lazygit_path = lazygit_dir / "config.yml"
-    lazygit_path.write_text(lazygit_config(theme))
-    print(f"  generated lazygit config")
-
-    # btop theme
     btop_theme_dir = Path.home() / ".config" / "btop" / "themes"
-    btop_theme_dir.mkdir(parents=True, exist_ok=True)
     btop_theme_path = btop_theme_dir / f"{theme['name']}.theme"
-    btop_theme_path.write_text(btop_theme(theme))
-    print(f"  generated btop theme: {theme['name']}")
-
-    # Set btop to use the theme
     btop_conf = Path.home() / ".config" / "btop" / "btop.conf"
-    _set_btop_color_theme(btop_conf, theme["name"])
+    if dry_run:
+        print("  would generate Neovim, Lazygit, and btop theme configs")
+    else:
+        nvim_colors_path.write_text(nvim_theme_colors(theme))
+        print("  generated nvim theme colors")
+        dash_path.write_text(nvim_dashboard_colors(theme))
+        print("  generated nvim dashboard colors")
+        lazygit_dir.mkdir(parents=True, exist_ok=True)
+        lazygit_path.write_text(lazygit_config(theme))
+        print("  generated lazygit config")
+        btop_theme_dir.mkdir(parents=True, exist_ok=True)
+        btop_theme_path.write_text(btop_theme(theme))
+        print(f"  generated btop theme: {theme['name']}")
+        _set_btop_color_theme(btop_conf, theme["name"])
 
     # Platform-specific placeholders (SSH agent socket path)
     placeholders = theme_placeholders(theme)
@@ -427,6 +447,95 @@ def create_symlink(source: Path, target: Path, dry_run: bool = False) -> str:
         target.parent.chmod(0o700)
     target.symlink_to(source)
     return "linked"
+
+
+def merge_cargo_config(target: Path, rustc_wrapper: Path, dry_run: bool = False) -> str:
+    """Merge Drydock's Rust wrapper into Cargo config without replacing it."""
+    managed_sources = {
+        (REPO_ROOT / "cargo" / "config.toml").resolve(),
+        (RENDERED_DIR / "cargo" / "config.toml").resolve(),
+    }
+    if target.is_symlink():
+        if target.resolve() not in managed_sources:
+            raise ValueError(
+                f"{target} is an unmanaged symlink; refusing to modify its destination"
+            )
+        if dry_run:
+            return "would replace managed symlink with merged config"
+        target.unlink()
+
+    original = target.read_text() if target.exists() else ""
+    existing_config = {}
+    if original:
+        existing_config = tomllib.loads(original)
+
+    existing_wrapper = existing_config.get("build", {}).get("rustc-wrapper")
+    if existing_wrapper is not None and existing_wrapper != str(rustc_wrapper):
+        raise ValueError(
+            f"{target} already sets build.rustc-wrapper to {existing_wrapper!r}; "
+            "refusing to replace it"
+        )
+    if existing_wrapper == str(rustc_wrapper):
+        return "skipped (Drydock Rust wrapper already configured)"
+
+    lines = original.splitlines(keepends=True)
+    wrapper_line = f'rustc-wrapper = "{rustc_wrapper}"'
+    build_start = next(
+        (index for index, line in enumerate(lines)
+         if re.match(r"^\s*\[build\]\s*(?:#.*)?$", line)),
+        None,
+    )
+    first_table = next(
+        (index for index, line in enumerate(lines) if re.match(r"^\s*\[", line)),
+        len(lines),
+    )
+    inline_build = next(
+        (index for index, line in enumerate(lines[:first_table])
+         if re.match(r"^\s*build\s*=\s*\{.*\}\s*(?:#.*)?$", line)),
+        None,
+    )
+    dotted_build = any(
+        re.match(r"^\s*build\.[A-Za-z0-9_-]+\s*=", line)
+        for line in lines[:first_table]
+    )
+
+    if build_start is None and inline_build is not None:
+        line = lines[inline_build]
+        before, after = line.rsplit("}", 1)
+        contents = before.split("{", 1)[1].strip()
+        separator = ", " if contents else ""
+        lines[inline_build] = f"{before.rstrip()}{separator}{wrapper_line}}}{after}"
+    elif build_start is None and dotted_build:
+        lines.insert(first_table, f"build.rustc-wrapper = \"{rustc_wrapper}\"\n")
+    elif build_start is None:
+        if existing_config.get("build") is not None:
+            raise ValueError(
+                f"{target} uses an unsupported inline build configuration; "
+                "refusing to rewrite it"
+            )
+        if lines and lines[-1].strip():
+            lines.append("\n")
+        lines.extend(["[build]\n", f"{wrapper_line}\n"])
+    else:
+        build_end = next(
+            (index for index in range(build_start + 1, len(lines))
+             if re.match(r"^\s*\[", lines[index])),
+            len(lines),
+        )
+        for index in range(build_start + 1, build_end):
+            if re.match(r"^\s*rustc-wrapper\s*=", lines[index]):
+                lines[index] = f"{wrapper_line}\n"
+                break
+        else:
+            lines.insert(build_end, f"{wrapper_line}\n")
+
+    merged = "".join(lines)
+    tomllib.loads(merged)
+    if dry_run:
+        return "would merge Drydock Rust wrapper"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(merged)
+    return "merged Drydock Rust wrapper"
 
 
 def op_available() -> bool:
@@ -554,8 +663,8 @@ def seed_zshrc_local_secrets_template(dry_run: bool = False) -> None:
     """
     template = (
         f"\n{_SECRETS_MARKER}\n"
-        "# Add secrets here using 1Password CLI. Secrets are resolved at runtime\n"
-        "# and never written to disk in plaintext. Example:\n"
+        "# Prefer project-scoped direnv files or `op run` so AI agents inherit only\n"
+        "# the credentials needed for that project. For a global secret:\n"
         "#   export MY_API_KEY=$(op read \"op://Vault/Item/field\" --no-newline 2>/dev/null)\n"
     )
 
@@ -735,19 +844,19 @@ def main(argv: list[str] | None = None) -> None:
 
     # Step 1: Identity
     print("Identity (stored in ~/.config/dotfiles/identity.json):")
-    identity = prompt_identity(non_interactive=non_interactive)
+    identity = prompt_identity(non_interactive=non_interactive, dry_run=dry_run)
     print()
 
     # Step 2: Theme
     print("Theme:\n")
-    theme_key, theme = prompt_theme(non_interactive=non_interactive)
+    theme_key, theme = prompt_theme(non_interactive=non_interactive, dry_run=dry_run)
     print(f"\n  Selected: {theme['name']}\n")
     print("Generating theme configs:\n")
-    theme_subs = generate_theme_files(theme_key, theme)
+    theme_subs = generate_theme_files(theme_key, theme, dry_run=dry_run)
     print()
 
     # Merge all substitutions: identity + theme placeholders
-    all_subs = {**identity, **theme_subs}
+    all_subs = {**identity, **theme_subs, "__HOME__": str(Path.home())}
     all_placeholder_keys = list(all_subs.keys())
 
     # Snapshot existing config before provisioning
@@ -792,6 +901,13 @@ def main(argv: list[str] | None = None) -> None:
                 status = create_symlink(src, target, dry_run=dry_run)
                 print(f"  {status:40s} {target} -> {src}")
 
+        cargo_config = active_cargo_config()
+        cargo_status = merge_cargo_config(
+            cargo_config,
+            Path.home() / ".local" / "bin" / "drydock-rustc-wrapper",
+            dry_run=dry_run,
+        )
+        print(f"  {cargo_status:40s} {cargo_config}")
         print()
 
         # Step 4: Claude Code

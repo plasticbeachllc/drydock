@@ -5,6 +5,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -33,6 +34,21 @@ class SetupPyTests(unittest.TestCase):
         self.assertEqual(
             self.module.SYMLINK_MAP["codex/skills/sync-branch"],
             Path.home() / ".codex" / "skills" / "sync-branch",
+        )
+
+    def test_rust_development_files_are_repo_owned(self):
+        self.assertEqual(
+            self.module.SYMLINK_MAP["cargo/rustc-wrapper.sh"],
+            Path.home() / ".local" / "bin" / "drydock-rustc-wrapper",
+        )
+        self.assertNotIn("cargo/config.toml", self.module.SYMLINK_MAP)
+        self.assertEqual(
+            self.module.SYMLINK_MAP["rust/rust-analyzer.sh"],
+            Path.home() / ".local" / "bin" / "rust-analyzer",
+        )
+        self.assertEqual(
+            self.module.SYMLINK_MAP["codex/rust-fast.config.toml"],
+            Path.home() / ".codex" / "rust-fast.config.toml",
         )
 
     def test_render_template_substitutes_identity_values(self):
@@ -188,6 +204,187 @@ class SetupPyTests(unittest.TestCase):
             self.module.needs_templating(src, ["__NAME__", "__THEME_HIGHLIGHT_COLOR__"])
         )
 
+    def test_cargo_config_renders_machine_home(self):
+        cargo_config = REPO_ROOT / "cargo" / "config.toml"
+        rendered = self.module.render_template(
+            cargo_config,
+            {"__HOME__": "/Users/example"},
+        )
+
+        self.assertIn(
+            'rustc-wrapper = "/Users/example/.local/bin/drydock-rustc-wrapper"',
+            rendered,
+        )
+        self.assertNotIn("__HOME__", rendered)
+
+    def test_generate_theme_files_dry_run_does_not_write_files(self):
+        theme = tomllib.loads(
+            (REPO_ROOT / "themes" / "themes.toml").read_text()
+        )["plastic-beach"]
+        generated_dir = self.root / "generated"
+        rendered_dir = self.root / "rendered"
+
+        with mock.patch.object(self.module, "GENERATED_DIR", generated_dir), \
+             mock.patch.object(self.module, "RENDERED_DIR", rendered_dir), \
+             mock.patch("pathlib.Path.home", return_value=self.root):
+            placeholders = self.module.generate_theme_files(
+                "plastic-beach", theme, dry_run=True
+            )
+
+        self.assertFalse(generated_dir.exists())
+        self.assertFalse(rendered_dir.exists())
+        self.assertFalse((self.root / ".config").exists())
+        self.assertEqual(placeholders["__THEME_NAME__"], "Plastic Beach")
+
+    def test_merge_cargo_config_preserves_existing_settings(self):
+        cargo_config = self.root / ".cargo" / "config.toml"
+        cargo_config.parent.mkdir()
+        cargo_config.write_text(
+            "[net]\n"
+            "git-fetch-with-cli = true\n\n"
+            "[build]\n"
+            'target-dir = "/tmp/target"\n'
+        )
+
+        status = self.module.merge_cargo_config(
+            cargo_config,
+            Path("/Users/example/.local/bin/drydock-rustc-wrapper"),
+        )
+
+        self.assertEqual(status, "merged Drydock Rust wrapper")
+        merged = cargo_config.read_text()
+        self.assertIn("[net]\ngit-fetch-with-cli = true", merged)
+        self.assertIn('target-dir = "/tmp/target"', merged)
+        self.assertIn(
+            'rustc-wrapper = "/Users/example/.local/bin/drydock-rustc-wrapper"',
+            merged,
+        )
+        self.module.tomllib.loads(merged)
+
+    def test_merge_cargo_config_rejects_existing_non_drydock_wrapper(self):
+        cargo_config = self.root / ".cargo" / "config.toml"
+        cargo_config.parent.mkdir()
+        original = '[build]\nrustc-wrapper = "/nix/store/wrapper"\n'
+        cargo_config.write_text(original)
+
+        with self.assertRaisesRegex(ValueError, "already sets build.rustc-wrapper"):
+            self.module.merge_cargo_config(
+                cargo_config,
+                Path("/Users/example/.local/bin/drydock-rustc-wrapper"),
+            )
+
+        self.assertEqual(cargo_config.read_text(), original)
+
+    def test_merge_cargo_config_replaces_legacy_managed_symlink(self):
+        cargo_config = self.root / ".cargo" / "config.toml"
+        cargo_config.parent.mkdir()
+        cargo_config.symlink_to(REPO_ROOT / "cargo" / "config.toml")
+
+        self.module.merge_cargo_config(
+            cargo_config,
+            Path("/Users/example/.local/bin/drydock-rustc-wrapper"),
+        )
+
+        self.assertFalse(cargo_config.is_symlink())
+        self.assertIn("/Users/example", cargo_config.read_text())
+
+    def test_merge_cargo_config_rejects_unmanaged_symlink(self):
+        cargo_config = self.root / ".cargo" / "config.toml"
+        cargo_config.parent.mkdir()
+        shared_config = self.root / "shared" / "cargo.toml"
+        shared_config.parent.mkdir()
+        original = "[net]\ngit-fetch-with-cli = true\n"
+        shared_config.write_text(original)
+        cargo_config.symlink_to(shared_config)
+
+        with self.assertRaisesRegex(ValueError, "unmanaged symlink"):
+            self.module.merge_cargo_config(
+                cargo_config,
+                Path("/Users/example/.local/bin/drydock-rustc-wrapper"),
+            )
+
+        self.assertTrue(cargo_config.is_symlink())
+        self.assertEqual(shared_config.read_text(), original)
+
+    def test_active_cargo_config_prefers_and_merges_legacy_filename(self):
+        cargo_dir = self.root / ".cargo"
+        cargo_dir.mkdir()
+        legacy_config = cargo_dir / "config"
+        toml_config = cargo_dir / "config.toml"
+        legacy_config.write_text("[net]\ngit-fetch-with-cli = true\n")
+        toml_original = "[http]\ncheck-revoke = false\n"
+        toml_config.write_text(toml_original)
+
+        active_config = self.module.active_cargo_config(cargo_dir)
+        self.module.merge_cargo_config(
+            active_config,
+            Path("/Users/example/.local/bin/drydock-rustc-wrapper"),
+        )
+
+        self.assertEqual(active_config, legacy_config)
+        self.assertIn('rustc-wrapper = "/Users/example/.local/bin/drydock-rustc-wrapper"',
+                      legacy_config.read_text())
+        self.assertEqual(toml_config.read_text(), toml_original)
+
+    def test_active_cargo_config_honors_cargo_home(self):
+        cargo_home = self.root / "custom-cargo"
+
+        with mock.patch.dict(os.environ, {"CARGO_HOME": str(cargo_home)}):
+            self.assertEqual(
+                self.module.active_cargo_config(),
+                cargo_home / "config.toml",
+            )
+
+    def test_merge_cargo_config_handles_dotted_build_settings(self):
+        cargo_config = self.root / ".cargo" / "config.toml"
+        cargo_config.parent.mkdir()
+        cargo_config.write_text('build.target-dir = "/tmp/target"\n')
+
+        self.module.merge_cargo_config(
+            cargo_config,
+            Path("/Users/example/.local/bin/drydock-rustc-wrapper"),
+        )
+
+        merged = cargo_config.read_text()
+        self.assertIn('build.target-dir = "/tmp/target"', merged)
+        self.assertIn(
+            'build.rustc-wrapper = "/Users/example/.local/bin/drydock-rustc-wrapper"',
+            merged,
+        )
+        self.module.tomllib.loads(merged)
+
+        status = self.module.merge_cargo_config(
+            cargo_config,
+            Path("/Users/example/.local/bin/drydock-rustc-wrapper"),
+        )
+        self.assertEqual(status, "skipped (Drydock Rust wrapper already configured)")
+        self.assertEqual(cargo_config.read_text(), merged)
+
+    def test_merge_cargo_config_handles_inline_build_settings(self):
+        cargo_config = self.root / ".cargo" / "config.toml"
+        cargo_config.parent.mkdir()
+        cargo_config.write_text('build = { target-dir = "/tmp/target" }\n')
+
+        self.module.merge_cargo_config(
+            cargo_config,
+            Path("/Users/example/.local/bin/drydock-rustc-wrapper"),
+        )
+
+        merged = cargo_config.read_text()
+        parsed = self.module.tomllib.loads(merged)
+        self.assertEqual(parsed["build"]["target-dir"], "/tmp/target")
+        self.assertEqual(
+            parsed["build"]["rustc-wrapper"],
+            "/Users/example/.local/bin/drydock-rustc-wrapper",
+        )
+
+        status = self.module.merge_cargo_config(
+            cargo_config,
+            Path("/Users/example/.local/bin/drydock-rustc-wrapper"),
+        )
+        self.assertEqual(status, "skipped (Drydock Rust wrapper already configured)")
+        self.assertEqual(cargo_config.read_text(), merged)
+
 
 class PlatformDetectionTests(unittest.TestCase):
     def setUp(self):
@@ -303,6 +500,27 @@ class NonInteractiveTests(unittest.TestCase):
 
         self.assertEqual(result["__NAME__"], "CI User")
         self.assertEqual(result["__EMAIL__"], "ci@example.com")
+
+    def test_prompt_identity_dry_run_does_not_save_identity(self):
+        identity_file = self.root / "identity.json"
+
+        with mock.patch.object(self.module, "IDENTITY_FILE", identity_file), \
+             mock.patch.dict(os.environ, {
+                 "DOTFILES_NAME": "CI User",
+                 "DOTFILES_EMAIL": "ci@example.com",
+             }):
+            self.module.prompt_identity(non_interactive=True, dry_run=True)
+
+        self.assertFalse(identity_file.exists())
+
+    def test_prompt_theme_dry_run_does_not_save_selection(self):
+        identity_file = self.root / "identity.json"
+
+        with mock.patch.object(self.module, "IDENTITY_FILE", identity_file):
+            key, _theme = self.module.prompt_theme(non_interactive=True, dry_run=True)
+
+        self.assertEqual(key, "plastic-beach")
+        self.assertFalse(identity_file.exists())
 
     def test_prompt_identity_non_interactive_from_saved(self):
         identity_file = self.root / "identity.json"
@@ -481,6 +699,119 @@ class ZprofileTests(unittest.TestCase):
         content = zprofile.read_text()
         self.assertIn("/opt/homebrew/bin/brew", content)
         self.assertIn("/home/linuxbrew/.linuxbrew/bin/brew", content)
+
+    def test_zprofile_reapplies_rustup_after_brew_shellenv(self):
+        content = (REPO_ROOT / "shell" / "zprofile").read_text()
+        self.assertIn("drydock_rustup_path", content)
+        self.assertIn('$HOME/.cargo/bin', content)
+        self.assertIn('$HOME/.local/bin', content)
+
+    def test_zshenv_prioritizes_homebrew_rustup_in_non_login_shells(self):
+        zsh = shutil.which("zsh")
+        if not zsh:
+            self.skipTest("zsh is not installed")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            home = root / "home"
+            home.mkdir()
+            rustup_bin = root / "brew" / "opt" / "rustup" / "bin"
+            rustup_bin.mkdir(parents=True)
+            rustc = rustup_bin / "rustc"
+            rustc.write_text("#!/bin/sh\nprintf 'rustup-rustc\\n'\n")
+            rustc.chmod(rustc.stat().st_mode | stat.S_IXUSR)
+
+            env = os.environ.copy()
+            env["HOME"] = str(home)
+            env["HOMEBREW_PREFIX"] = str(root / "brew")
+            env["PATH"] = "/usr/bin:/bin"
+            zshenv = REPO_ROOT / "shell" / "zshenv"
+            result = subprocess.run(
+                [
+                    zsh,
+                    "-dfc",
+                    f'source "{zshenv}"; rustc',
+                ],
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertEqual(result.stdout, "rustup-rustc\n")
+
+    def test_rustup_path_is_restored_after_homebrew_prepends_its_bin(self):
+        zsh = shutil.which("zsh")
+        if not zsh:
+            self.skipTest("zsh is not installed")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            home = root / "home"
+            home.mkdir()
+            rustup_bin = root / "brew" / "opt" / "rustup" / "bin"
+            standalone_bin = root / "brew" / "bin"
+            rustup_bin.mkdir(parents=True)
+            standalone_bin.mkdir(parents=True)
+            for path, output in (
+                (rustup_bin / "rustc", "rustup-rustc"),
+                (standalone_bin / "rustc", "standalone-rustc"),
+            ):
+                path.write_text(f"#!/bin/sh\nprintf '{output}\\n'\n")
+                path.chmod(path.stat().st_mode | stat.S_IXUSR)
+
+            env = os.environ.copy()
+            env["HOME"] = str(home)
+            env["HOMEBREW_PREFIX"] = str(root / "brew")
+            env["PATH"] = "/usr/bin:/bin"
+            zshenv = REPO_ROOT / "shell" / "zshenv"
+            result = subprocess.run(
+                [
+                    zsh,
+                    "-dfc",
+                    (
+                        f'source "{zshenv}"; '
+                        f'PATH="{standalone_bin}:$PATH"; '
+                        'drydock_rustup_path; rustc'
+                    ),
+                ],
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertEqual(result.stdout, "rustup-rustc\n")
+
+    def test_zshenv_exposes_managed_shims_in_non_login_shells(self):
+        zsh = shutil.which("zsh")
+        if not zsh:
+            self.skipTest("zsh is not installed")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home = Path(temp_dir)
+            local_bin = home / ".local" / "bin"
+            local_bin.mkdir(parents=True)
+            shim = local_bin / "rust-analyzer"
+            shim.write_text("#!/bin/sh\nprintf 'managed-rust-analyzer\\n'\n")
+            shim.chmod(shim.stat().st_mode | stat.S_IXUSR)
+
+            env = os.environ.copy()
+            env["HOME"] = str(home)
+            env["PATH"] = "/usr/bin:/bin"
+            zshenv = REPO_ROOT / "shell" / "zshenv"
+            result = subprocess.run(
+                [zsh, "-dfc", f'source "{zshenv}"; rust-analyzer'],
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertEqual(result.stdout, "managed-rust-analyzer\n")
 
     def test_zprofile_is_valid_shell(self):
         """zprofile should pass bash -n syntax check (zsh superset)."""

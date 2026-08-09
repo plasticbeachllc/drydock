@@ -1,0 +1,20 @@
+# Repository Instructions
+
+## Rust workflow
+
+- Use the toolchain declared in `rust-toolchain.toml`.
+- Run `just verify` before handing off a completed change.
+- Run the narrowest relevant test during iteration; use `cargo nextest run <filter>` when possible.
+- Treat Clippy warnings as errors and keep code formatted with rustfmt.
+- Run `just coverage` when changing behavior whose test coverage is not obvious.
+
+## Project context
+
+- Document supported feature combinations and remove `--all-features` from the `justfile` if features are mutually exclusive.
+- Document required services, fixtures, generated files, and whether tests may use the network.
+- Document the unsafe-code policy and any platform or MSRV requirements.
+- Explain when `Cargo.lock` changes are expected.
+
+## Version control
+
+- This repository uses jj. Do not use Git for history operations.

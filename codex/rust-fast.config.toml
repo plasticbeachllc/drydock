@@ -1,0 +1,4 @@
+# Use for routine Rust iterations with `codex --profile rust-fast`.
+# The model continues to come from the base Codex configuration.
+model_reasoning_effort = "medium"
+developer_instructions = "For routine Rust work, prefer narrow checks during iteration and run the repository's full verification command before handoff."

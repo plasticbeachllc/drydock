@@ -1,0 +1,25 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+# Remove --all-features in projects whose feature flags are mutually exclusive.
+fmt:
+    cargo fmt --all -- --check
+
+check:
+    cargo check --workspace --all-targets --all-features
+
+lint:
+    cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+test:
+    cargo nextest run --workspace --all-features
+
+docs:
+    cargo test --doc --workspace --all-features
+
+coverage:
+    cargo llvm-cov nextest --workspace --all-features --html
+
+dependencies:
+    cargo deny check
+
+verify: fmt check lint test docs dependencies

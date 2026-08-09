@@ -337,17 +337,36 @@ remove_gdm_login_logo() {
 }
 
 ensure_rust_toolchain() {
-    if command -v rustup &>/dev/null && rustup show active-toolchain &>/dev/null; then
-        echo "Rust toolchain already initialized."
-        return 0
+    # Homebrew's rustup formula is keg-only because it conflicts with the
+    # standalone rust formula. Prefer its proxies for login and agent shells.
+    if command -v brew &>/dev/null; then
+        local rustup_prefix
+        rustup_prefix="$(brew_cmd --prefix rustup 2>/dev/null || true)"
+        if [[ -n "$rustup_prefix" && -d "$rustup_prefix/bin" ]]; then
+            export PATH="$rustup_prefix/bin:$PATH"
+        fi
     fi
 
-    echo "Initializing Rust toolchain..."
-    if is_arch; then
-        rustup default stable
-    else
-        rustup-init -y --no-modify-path
+    if ! command -v rustup &>/dev/null; then
+        echo "rustup is not available after package installation."
+        return 1
     fi
+
+    # Do not infer the desired toolchain from the current directory: rustup
+    # honours a nearby rust-toolchain.toml for both queries and unqualified
+    # component installs. Bootstrap owns the machine default, so always make
+    # stable available and select it explicitly.
+    echo "Installing and selecting the stable Rust toolchain..."
+    rustup toolchain install stable
+    rustup default stable
+
+    echo "Ensuring Rust development components..."
+    rustup component add --toolchain stable \
+        clippy \
+        rust-analyzer \
+        rust-src \
+        rustfmt \
+        llvm-tools-preview
 }
 
 # Trap: print summary on exit
@@ -427,6 +446,11 @@ if is_arch; then
         jujutsu
         lazyjj
         rustup
+        cargo-nextest
+        cargo-llvm-cov
+        cargo-deny
+        sccache
+        bacon
         nodejs
         npm
         python
@@ -533,7 +557,12 @@ COMMON_TOOLS=(
     jj
     lazyjj
     1password-cli
-    rustup-init
+    rustup
+    cargo-nextest
+    cargo-llvm-cov
+    cargo-deny
+    sccache
+    bacon
     node
     python
     neovim

@@ -4,3 +4,19 @@ if [[ -f /opt/homebrew/bin/brew ]]; then
 elif [[ -f /home/linuxbrew/.linuxbrew/bin/brew ]]; then
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv zsh)"
 fi
+
+# `brew shellenv` above prepends Homebrew's main bin directory. Re-apply the
+# zshenv helper so keg-only rustup remains ahead of standalone Homebrew Rust.
+if command -v drydock_rustup_path >/dev/null 2>&1; then
+    drydock_rustup_path
+fi
+
+# Cargo-installed tools use this directory with both rustup installation modes.
+if [[ -d "$HOME/.cargo/bin" ]]; then
+    drydock_prepend_path "$HOME/.cargo/bin"
+fi
+
+# Repo-managed tool shims, including rust-analyzer and the safe Cargo wrapper.
+if [[ -d "$HOME/.local/bin" ]]; then
+    drydock_prepend_path "$HOME/.local/bin"
+fi

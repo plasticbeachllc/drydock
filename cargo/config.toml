@@ -1,0 +1,4 @@
+[build]
+# The managed wrapper invokes rustc directly when sccache is unavailable, so
+# `setup.py` remains safe when package installation is partial.
+rustc-wrapper = "__HOME__/.local/bin/drydock-rustc-wrapper"
