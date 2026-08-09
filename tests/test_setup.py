@@ -36,6 +36,12 @@ class SetupPyTests(unittest.TestCase):
             Path.home() / ".codex" / "skills" / "sync-branch",
         )
 
+    def test_gh_loop_pr_feedback_skill_is_repo_owned_symlink(self):
+        self.assertEqual(
+            self.module.SYMLINK_MAP["codex/skills/gh-loop-pr-feedback"],
+            Path.home() / ".codex" / "skills" / "gh-loop-pr-feedback",
+        )
+
     def test_rust_development_files_are_repo_owned(self):
         self.assertEqual(
             self.module.SYMLINK_MAP["cargo/rustc-wrapper.sh"],
